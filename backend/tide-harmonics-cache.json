@@ -1,0 +1,59 @@
+{
+    "timestamp": 1733536295092,
+    "harmonicData": {
+        "9447819": {
+            "stationId": "9447819",
+            "meanSeaLevel": 0.0,
+            "constituents": [
+                {
+                    "name": "M2",
+                    "speed": 28.984104,
+                    "amplitude": 4.128,
+                    "phase": 159.5
+                },
+                {
+                    "name": "S2",
+                    "speed": 30.0,
+                    "amplitude": 1.089,
+                    "phase": 183.3
+                }
+            ]
+        },
+        "9447130": {
+            "stationId": "9447130",
+            "meanSeaLevel": 0.0,
+            "constituents": [
+                {
+                    "name": "M2",
+                    "speed": 28.984104,
+                    "amplitude": 4.128,
+                    "phase": 159.5
+                },
+                {
+                    "name": "S2",
+                    "speed": 30.0,
+                    "amplitude": 1.089,
+                    "phase": 183.3
+                }
+            ]
+        },
+        "TEST123": {
+            "stationId": "TEST123",
+            "meanSeaLevel": 0.0,
+            "constituents": [
+                {
+                    "name": "M2",
+                    "speed": 28.984104,
+                    "amplitude": 4.128,
+                    "phase": 159.5
+                },
+                {
+                    "name": "S2",
+                    "speed": 30.0,
+                    "amplitude": 1.089,
+                    "phase": 183.3
+                }
+            ]
+        }
+    }
+}

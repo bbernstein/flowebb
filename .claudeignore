@@ -1,0 +1,11 @@
+# Common ignore patterns
+*.log
+.env
+node_modules/
+__pycache__/
+.git/
+.idea/
+venv/
+.next/
+build/
+.gradle/
