@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Tides API SAM Application
+
+Globals:
+  Function:
+    Timeout: 120
+    MemorySize: 512
+    Runtime: java11
+    Architectures:
+      - x86_64
+    AutoPublishAlias: live
+    Environment:
+      Variables:
+        JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+        DYNAMODB_ENDPOINT: "http://dynamodb-local:8000"
+        AWS_REGION: "local"
+        ALLOWED_ORIGINS: "'http://localhost:3000'"
+
+  Api:
+    Cors:
+      AllowMethods: "'*'"
+      AllowHeaders: "'*'"
+      AllowOrigin: "'http://localhost:3000'"
+
+Resources:
+  TidesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend
+      Handler: com.flowebb.lambda.TidesLambda::handleRequest
+      Events:
+        TidesApi:
+          Type: Api
+          Properties:
+            Path: /api/tides
+            Method: GET
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: "*"
+
+  StationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend
+      Handler: com.flowebb.lambda.StationsLambda::handleRequest
+      Events:
+        StationsApi:
+          Type: Api
+          Properties:
+            Path: /api/stations
+            Method: GET
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: "*"

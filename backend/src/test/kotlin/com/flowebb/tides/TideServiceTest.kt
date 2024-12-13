@@ -7,12 +7,13 @@ import kotlin.test.*
 
 class TideServiceTest {
     private class MockStationService : StationService(emptyMap()) {
-        override suspend fun findNearestStation(
+        override suspend fun findNearestStations(
             latitude: Double,
             longitude: Double,
+            limit: Int,
             preferredSource: StationSource?
-        ): Station {
-            return Station(
+        ): List<Station> {
+            return listOf(Station(
                 id = "TEST1",
                 name = "Test Station",
                 state = "WA",
@@ -20,6 +21,20 @@ class TideServiceTest {
                 distance = 10.5,
                 latitude = latitude,
                 longitude = longitude,
+                source = StationSource.NOAA,
+                capabilities = setOf(StationType.WATER_LEVEL)
+            ))
+        }
+
+        override suspend fun getStation(stationId: String): Station {
+            return Station(
+                id = stationId,
+                name = "Test Station",
+                state = "WA",
+                region = "Puget Sound",
+                distance = 10.5,
+                latitude = 47.0,
+                longitude = -122.0,
                 source = StationSource.NOAA,
                 capabilities = setOf(StationType.WATER_LEVEL)
             )

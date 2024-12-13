@@ -4,6 +4,7 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
+/local-dev/
 
 # Kotlin
 *.class
@@ -92,7 +93,6 @@ ehthumbs_vista.db
 [Dd]esktop.ini
 
 ### Logs and databases ###
-*.log
 *.sqlite
 *.db
 

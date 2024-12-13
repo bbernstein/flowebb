@@ -1,25 +1,28 @@
 package com.flowebb.tides.calculation
 
+import com.flowebb.http.HttpClientService
 import com.flowebb.tides.station.Station
-import io.ktor.client.*
-import io.ktor.client.call.*
-import io.ktor.client.request.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import mu.KotlinLogging
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import kotlin.math.*
+import io.ktor.client.call.*
 
 open class TideLevelCalculator(
-    private val client: HttpClient? = null,
+    private val httpClient: HttpClientService = HttpClientService(),
     private val useNoaaApi: Boolean = false
 ) {
+    private val logger = KotlinLogging.logger {}
+
     open suspend fun calculateLevel(station: Station, timestamp: Long): Double = withContext(Dispatchers.IO) {
-        if (useNoaaApi && client != null) {
+        if (useNoaaApi ) {
             try {
                 getNoaaLevel(station.id, timestamp)
             } catch (e: Exception) {
+                logger.warn(e) { "Failed to get NOAA level, falling back to harmonic calculation" }
                 calculateHarmonicLevel(station, timestamp)
             }
         } else {
@@ -37,19 +40,25 @@ open class TideLevelCalculator(
         val beginDate = dateFormatter.format(beginInstant)
         val endDate = dateFormatter.format(endInstant)
 
-        val response = client!!.get("https://api.tidesandcurrents.noaa.gov/api/prod/datagetter") {
-            parameter("station", stationId)
-            parameter("begin_date", beginDate)
-            parameter("end_date", endDate)
-            parameter("product", "predictions")
-            parameter("datum", "MLLW")
-            parameter("units", "english")
-            parameter("time_zone", "gmt")
-            parameter("format", "json")
-        }
+        val queryParams = mapOf(
+            "station" to stationId,
+            "begin_date" to beginDate,
+            "end_date" to endDate,
+            "product" to "predictions",
+            "datum" to "MLLW",
+            "units" to "english",
+            "time_zone" to "gmt",
+            "format" to "json"
+        )
 
-        val noaaResponse = response.body<NoaaResponse>()
-        interpolatePredictions(noaaResponse.predictions, timestamp)
+        httpClient.get(
+            url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter",
+            queryParams = queryParams
+        ) { response ->
+            response.body<NoaaResponse>().predictions.let { predictions ->
+                interpolatePredictions(predictions, timestamp)
+            }
+        }
     }
 
     private fun interpolatePredictions(predictions: List<NoaaPrediction>, timestamp: Long): Double {
