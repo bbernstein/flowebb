@@ -13,8 +13,9 @@ Globals:
     Environment:
       Variables:
         JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+        STATION_LIST_BUCKET: !Ref StationListBucket
         DYNAMODB_ENDPOINT: "http://dynamodb-local:8000"
-        AWS_REGION: "local"
+        AWS_REGION: !Ref AWS::Region
         ALLOWED_ORIGINS: "'http://localhost:3000'"
 
   Api:
@@ -24,6 +25,16 @@ Globals:
       AllowOrigin: "'http://localhost:3000'"
 
 Resources:
+  StationListBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-station-list-cache
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldFiles
+            Status: Enabled
+            ExpirationInDays: 7
+
   TidesFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -38,6 +49,10 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: "*"
+        - S3ReadPolicy:
+            BucketName: !Ref StationListBucket
+        - S3WritePolicy:
+            BucketName: !Ref StationListBucket
 
   StationsFunction:
     Type: AWS::Serverless::Function
@@ -53,3 +68,8 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: "*"
+        - S3ReadPolicy:
+            BucketName: !Ref StationListBucket
+        - S3WritePolicy:
+            BucketName: !Ref StationListBucket
+

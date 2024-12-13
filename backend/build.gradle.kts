@@ -53,16 +53,21 @@ dependencies {
 
     // AWS SDK dependencies
     implementation(platform("software.amazon.awssdk:bom:$aws_sdk_version"))
-    implementation("software.amazon.awssdk:dynamodb")
-    implementation("software.amazon.awssdk:dynamodb-enhanced")
+    implementation("software.amazon.awssdk:dynamodb") {
+        exclude(group = "software.amazon.awssdk", module = "apache-client")
+    }
+    implementation("software.amazon.awssdk:dynamodb-enhanced") {
+        exclude(group = "software.amazon.awssdk", module = "apache-client")
+    }
+    implementation("software.amazon.awssdk:s3") {
+        exclude(group = "software.amazon.awssdk", module = "apache-client")
+    }
     implementation("software.amazon.awssdk:regions")
     implementation("software.amazon.awssdk:auth")
     implementation("software.amazon.awssdk:url-connection-client:$aws_sdk_version")
-    implementation("software.amazon.awssdk:s3")
 
     // Logging
     implementation("ch.qos.logback:logback-classic:$logback_version")
-//    implementation("org.slf4j:slf4j-api:1.7.36")
     implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
 
     // Kotlin coroutines and serialization

@@ -10,25 +10,35 @@ import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable
 import software.amazon.awssdk.enhanced.dynamodb.Key
+import software.amazon.awssdk.services.s3.S3Client
 import io.mockk.mockk
 import io.mockk.every
 import io.mockk.coEvery
 import com.flowebb.config.DynamoConfig
 import com.flowebb.http.HttpClientService
+import com.flowebb.tides.station.cache.StationListCache
 
 class NoaaStationFinderTest {
     private lateinit var mockHttpClient: HttpClientService
     private lateinit var mockDynamoClient: DynamoDbEnhancedClient
+    private lateinit var mockS3Client: S3Client
     private lateinit var mockTable: DynamoDbTable<StationListPartition>
     private lateinit var finder: NoaaStationFinder
 
     @BeforeEach
     fun setup() {
         mockDynamoClient = mockk(relaxed = true)
+        mockS3Client = mockk(relaxed = true)
         mockTable = mockk<DynamoDbTable<StationListPartition>>()
         mockHttpClient = mockk()
 
         DynamoConfig.setTestClient(mockDynamoClient)
+
+        // Create StationListCache with mock S3 client
+        val stationListCache = StationListCache(
+            isLocalDevelopment = true, // Force local development mode for tests
+            s3Client = mockS3Client
+        )
 
         every {
             mockDynamoClient.table(
@@ -92,7 +102,7 @@ class NoaaStationFinderTest {
             )
         )
 
-        finder = NoaaStationFinder(mockHttpClient)
+        finder = NoaaStationFinder(mockHttpClient, stationListCache)
     }
 
     @AfterEach
