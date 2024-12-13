@@ -19,7 +19,7 @@ class StationServiceTest {
     }
 
     @Test
-    fun `findNearestStation returns station from preferred source`() = runBlocking {
+    fun `findNearestStations returns station from preferred source`() = runBlocking {
         val mockStation = Station(
             id = "TEST1",
             name = "Test Station",
@@ -36,12 +36,12 @@ class StationServiceTest {
             mapOf(StationSource.NOAA to MockStationFinder(mockStation))
         )
 
-        val result = service.findNearestStation(47.0, -122.0, StationSource.NOAA)
-        assertEquals(mockStation, result)
+        val result = service.findNearestStations(47.0, -122.0, 1, StationSource.NOAA)
+        assertEquals(mockStation, result.first())
     }
 
     @Test
-    fun `findNearestStation tries all sources when preferred source fails`() = runBlocking {
+    fun `findNearestStations tries all sources when preferred source fails`() = runBlocking {
         val mockStation = Station(
             id = "TEST2",
             name = "Test Station",
@@ -61,7 +61,7 @@ class StationServiceTest {
             )
         )
 
-        val result = service.findNearestStation(47.0, -122.0, StationSource.NOAA)
-        assertEquals(mockStation, result)
+        val result = service.findNearestStations(47.0, -122.0, 1, StationSource.NOAA)
+        assertEquals(mockStation, result.first())
     }
 }

@@ -1,138 +1,144 @@
 package com.flowebb.tides.station
 
-import io.ktor.client.*
+import com.flowebb.config.DynamoConfig
+import com.flowebb.http.HttpClientService
+import com.flowebb.tides.calculation.GeoUtils
 import io.ktor.client.call.*
-import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.client.request.*
-import io.ktor.serialization.kotlinx.json.*
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.*
-import java.io.File
-import java.time.Instant
+import software.amazon.awssdk.enhanced.dynamodb.TableSchema
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.days
+import software.amazon.awssdk.enhanced.dynamodb.Key
+import java.time.Instant
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbConvertedBy
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey
+import mu.KotlinLogging
 
-@Serializable
-private data class NoaaStationMetadata(
-    val stationId: String,
-    val name: String,
-    val lat: Double,
-    val lon: Double,
-    val state: String? = null,
-    val distance: Double? = null,
-    val stationName: String? = null,
-    val region: String? = null,
-    val commonName: String? = null,
-    val stationFullName: String? = null,
-    val etidesStnName: String? = null,
-    val timeZoneCorr: String? = null,
-    val refStationId: String? = null,
-    val stationType: String? = null,
-    val parentGeoGroupId: String? = null,
-    val seq: String? = null,
-    val geoGroupId: String? = null,
-    val geoGroupName: String? = null,
-    val level: String? = null,
-    val geoGroupType: String? = null,
-    val abbrev: String? = null
+@DynamoDbBean
+data class StationListPartition(
+    @get:DynamoDbPartitionKey
+    var listId: String = "NOAA_STATION_LIST",
+    @get:DynamoDbSortKey
+    var partitionId: Int = 0,
+    @get:DynamoDbConvertedBy(StationListConverter::class)
+    var stations: List<NoaaStationMetadata> = listOf(),
+    var totalPartitions: Int = 1,
+    var lastUpdated: Long = 0,
+    var ttl: Long = 0
 )
 
-@Serializable
-private data class NoaaStationsResponse(
-    val stationList: List<NoaaStationMetadata>
-)
-
-@Serializable
-private data class CacheEntry(
-    val timestamp: Long,
-    val stationList: List<NoaaStationMetadata>
-)
-
-@Serializable
-private data class NoaaHarmonicResponse(
-    val HarmonicConstituents: List<NoaaConstituent>
-)
-
-@Serializable
-private data class NoaaConstituent(
-    val name: String,
-    val speed: Double,
-    val amplitude: Double,
-    val phase_GMT: Double
-)
-
-@Serializable
-private data class HarmonicCache(
-    val timestamp: Long,
-    val harmonicData: Map<String, HarmonicConstants>
-)
-
+@Suppress("unused")
 class NoaaStationFinder(
-    private val client: HttpClient = HttpClient(CIO) {
-        install(ContentNegotiation) {
-            json(Json {
-                ignoreUnknownKeys = true  // Add this line
-                isLenient = true
-                prettyPrint = true
-                encodeDefaults = true
-            })
-        }
-    },
-    private val stationsCacheFile: File = File("tide-stations-cache.json"),
-    private val harmonicsCacheFile: File = File("tide-harmonics-cache.json")
+    private val httpClient: HttpClientService = HttpClientService()
 ) : StationFinder {
-    private val json = Json {
-        ignoreUnknownKeys = true  // Add this line
-        isLenient = true
-        prettyPrint = true
-        encodeDefaults = true
+    private val logger = KotlinLogging.logger {}
+    private val PARTITION_SIZE = 100 // Number of stations per partition
+
+    private val stationListTable = DynamoConfig.enhancedClient.table(
+        "station-list-cache",
+        TableSchema.fromBean(StationListPartition::class.java)
+    )
+
+    private val cacheValidityPeriod = 24.hours.inWholeMilliseconds
+
+    private val harmonicConstantsTable = DynamoConfig.enhancedClient.table(
+        "harmonic-constants-cache",
+        TableSchema.fromBean(HarmonicConstantsCache::class.java)
+    )
+
+    private val harmonicCacheValidityPeriod = 7.days.inWholeMilliseconds
+
+    private suspend fun getStationList(): List<NoaaStationMetadata> {
+        // Try to get first partition to check if cache is valid
+        val firstPartition = stationListTable.getItem(
+            Key.builder()
+                .partitionValue("NOAA_STATION_LIST")
+                .sortValue(0)
+                .build()
+        )
+
+        if (firstPartition != null &&
+            (Instant.now().toEpochMilli() - firstPartition.lastUpdated) < cacheValidityPeriod
+        ) {
+            logger.debug { "Found valid first partition with ${firstPartition.stations.size} stations" }
+            logger.debug { "Total partitions: ${firstPartition.totalPartitions}" }
+
+            val allStations = getAllPartitions(firstPartition.totalPartitions)
+            logger.debug { "Retrieved ${allStations.size} total stations from cache" }
+            return allStations
+        }
+
+        // If not in cache or expired, fetch new data
+        logger.debug { "Fetching fresh station list from NOAA API" }
+        val stations = fetchStationList()
+        logger.debug { "Fetched ${stations.size} stations from NOAA API" }
+
+        // Calculate number of partitions needed
+        val totalPartitions = (stations.size + PARTITION_SIZE - 1) / PARTITION_SIZE
+        logger.debug { "Splitting stations into $totalPartitions partitions" }
+
+        // Store in partitions
+        val now = Instant.now().toEpochMilli()
+        stations.chunked(PARTITION_SIZE).forEachIndexed { index, partition ->
+            logger.debug { "Storing partition $index with ${partition.size} stations" }
+            stationListTable.putItem(
+                StationListPartition(
+                    listId = "NOAA_STATION_LIST",
+                    partitionId = index,
+                    stations = partition,
+                    totalPartitions = totalPartitions,
+                    lastUpdated = now,
+                    ttl = now + cacheValidityPeriod
+                )
+            )
+        }
+
+        return stations
     }
 
-    private val stationCacheValidityPeriod = 7.days.inWholeMilliseconds
-    private val harmonicCacheValidityPeriod = 365.days.inWholeMilliseconds
-    private var harmonicCache: Map<String, HarmonicConstants> = loadHarmonicCache()
+    private fun getAllPartitions(totalPartitions: Int): List<NoaaStationMetadata> {
+        logger.debug { "Retrieving all $totalPartitions partitions" }
+        val allStations = (0 until totalPartitions)
+            .map { partitionId ->
+                val partition = stationListTable.getItem(
+                    Key.builder()
+                        .partitionValue("NOAA_STATION_LIST")
+                        .sortValue(partitionId)
+                        .build()
+                )
+                logger.debug { "Retrieved partition $partitionId with ${partition?.stations?.size ?: 0} stations" }
+                partition?.stations ?: emptyList()
+            }
+            .flatten()
 
-    private suspend fun fetchHarmonicConstants(stationId: String): HarmonicConstants? {
-        return try {
-            val response =
-                client.get("https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/$stationId/harcon.json")
-            val harmonicData = response.body<NoaaHarmonicResponse>()
+        logger.debug { "Combined all partitions into ${allStations.size} total stations" }
+        return allStations
+    }
 
-            HarmonicConstants(
-                stationId = stationId,
-                meanSeaLevel = harmonicData.HarmonicConstituents
-                    .find { it.name == "Z0" }?.amplitude ?: 0.0,
-                constituents = harmonicData.HarmonicConstituents
-                    .filter { it.name != "Z0" }
-                    .map { constituent ->
-                        HarmonicConstituent(
-                            name = constituent.name,
-                            speed = constituent.speed,
-                            amplitude = constituent.amplitude,
-                            phase = constituent.phase_GMT
-                        )
-                    }
-            )
-        } catch (e: Exception) {
-            null
+    private suspend fun fetchStationList(): List<NoaaStationMetadata> {
+        return httpClient.get(
+            url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/tidepredstations.json"
+        ) { response ->
+            response.body<NoaaStationsResponse>().stationList
         }
     }
 
     override suspend fun findStation(stationId: String): Station {
-        val stations = fetchStationList()
-        val stationData = stations.find { it.stationId == stationId }
+        logger.debug { "Fetching station data for ID: $stationId" }
+
+        val stationData = getStationList()
+            .find { it.stationId == stationId }
             ?: throw Exception("Station not found: $stationId")
 
         val harmonicConstants = fetchHarmonicConstants(stationId)
 
-        println("Found station: ${stationData.stationName} constants: $harmonicConstants")
         return Station(
             id = stationData.stationId,
             name = stationData.stationName,
             state = stationData.state,
-            region = null,
-            distance = 0.0, // No distance since we're looking up directly
+            region = stationData.region,
+            distance = 0.0,
             latitude = stationData.lat,
             longitude = stationData.lon,
             source = StationSource.NOAA,
@@ -141,109 +147,103 @@ class NoaaStationFinder(
         )
     }
 
-    private fun loadHarmonicCache(): Map<String, HarmonicConstants> {
-        if (!harmonicsCacheFile.exists()) return emptyMap()
+    override suspend fun findNearestStations(
+        latitude: Double,
+        longitude: Double,
+        limit: Int
+    ): List<Station> {
+        logger.debug { "Finding nearest stations to lat=$latitude, lon=$longitude" }
 
-        return try {
-            val cacheEntry = json.decodeFromString<HarmonicCache>(harmonicsCacheFile.readText())
-            val age = Instant.now().toEpochMilli() - cacheEntry.timestamp
+        // Always get the full station list first
+        val allStations = getStationList()
+        logger.debug { "Retrieved ${allStations.size} total stations for processing" }
 
-            if (age < harmonicCacheValidityPeriod) {
-                cacheEntry.harmonicData
-            } else {
-                emptyMap()
-            }
-        } catch (e: Exception) {
-            // If there's any error reading the cache, return empty map
-            emptyMap()
-        }
-    }
-
-    private suspend fun getHarmonicConstants(stationId: String): HarmonicConstants? {
-        harmonicCache[stationId]?.let { return it }
-
-        val constants = fetchHarmonicConstants(stationId)
-        if (constants != null) {
-            harmonicCache = harmonicCache + (stationId to constants)
-            saveHarmonicCache()
-        }
-        return constants
-    }
-
-    private fun saveHarmonicCache() {
-        val cacheEntry = HarmonicCache(
-            timestamp = Instant.now().toEpochMilli(),
-            harmonicData = harmonicCache
-        )
-        harmonicsCacheFile.writeText(json.encodeToString(cacheEntry))
-    }
-
-    override suspend fun findNearestStations(latitude: Double, longitude: Double, limit: Int): List<Station> {
-        val stations = fetchStationList()
-
-        val candidateStations = stations
-            .map { station ->
-                Pair(station, calculateDistance(latitude, longitude, station.lat, station.lon))
+        // Calculate distances and find nearest stations
+        val nearestStations = allStations
+            .map { stationData ->
+                val distance = GeoUtils.calculateDistance(
+                    latitude,
+                    longitude,
+                    stationData.lat,
+                    stationData.lon
+                )
+                stationData to distance
             }
             .sortedBy { it.second }
             .take(limit)
 
-        return candidateStations
-            .mapNotNull { (stationData, distance) ->
-                val harmonicConstants = getHarmonicConstants(stationData.stationId)
-                if (harmonicConstants?.constituents?.isNotEmpty() == true) {
-                    Station(
-                        id = stationData.stationId,
-                        name = stationData.stationName,
-                        state = stationData.state,
-                        region = null,
-                        distance = distance,
-                        latitude = stationData.lat,
-                        longitude = stationData.lon,
-                        source = StationSource.NOAA,
-                        capabilities = setOf(StationType.WATER_LEVEL),
-                        harmonicConstants = harmonicConstants
-                    )
-                } else {
-                    null
-                }
-            }
+        logger.debug { "Found ${nearestStations.size} nearest stations" }
+        logger.debug { "Nearest station distances: ${nearestStations.map { it.second }}" }
+
+        // Convert to Station objects and return
+        return nearestStations.map { (stationData, distance) ->
+            Station(
+                id = stationData.stationId,
+                name = stationData.stationName,
+                state = stationData.state,
+                region = stationData.region,
+                distance = distance,
+                latitude = stationData.lat,
+                longitude = stationData.lon,
+                source = StationSource.NOAA,
+                capabilities = setOf(StationType.WATER_LEVEL),
+                harmonicConstants = fetchHarmonicConstants(stationData.stationId)
+            )
+        }
     }
 
-    private suspend fun fetchStationList(): List<NoaaStationMetadata> {
-        if (stationsCacheFile.exists()) {
-            val cacheEntry = json.decodeFromString<CacheEntry>(stationsCacheFile.readText())
-            val age = Instant.now().toEpochMilli() - cacheEntry.timestamp
+    private suspend fun fetchHarmonicConstants(stationId: String): HarmonicConstants? {
+        // Try to get from cache first
+        val cachedConstants = harmonicConstantsTable.getItem(
+            Key.builder().partitionValue(stationId).build()
+        )
 
-            if (age < stationCacheValidityPeriod) {
-                return cacheEntry.stationList
-            }
+        if (cachedConstants != null &&
+            (Instant.now().toEpochMilli() - cachedConstants.lastUpdated) < harmonicCacheValidityPeriod
+        ) {
+            logger.debug { "Found cached harmonic constants for station $stationId" }
+            return cachedConstants.harmonicConstants
         }
 
-        val response = client.get("https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/tidepredstations.json")
-        val stationsData = response.body<NoaaStationsResponse>()
-
-        val cacheEntry = CacheEntry(
-            timestamp = Instant.now().toEpochMilli(),
-            stationList = stationsData.stationList,
-        )
-        stationsCacheFile.writeText(json.encodeToString<CacheEntry>(cacheEntry))
-
-        return stationsData.stationList
-    }
-
-    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val r = 6371.0 // Earth's radius in kilometers
-
-        val dLat = Math.toRadians(lat2 - lat1)
-        val dLon = Math.toRadians(lon2 - lon1)
-
-        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2)
-
-        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-
-        return r * c
+        // If not in cache or expired, fetch from API
+        return try {
+            logger.debug { "Fetching harmonic constants from NOAA API for station $stationId" }
+            httpClient.get(
+                url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/$stationId/harcon.json"
+            ) { response ->
+                response.body<NoaaHarmonicResponse>().let { noaaResponse ->
+                    HarmonicConstants(
+                        stationId = stationId,
+                        meanSeaLevel = noaaResponse.HarmonicConstituents
+                            .find { it.name == "Z0" }?.amplitude ?: 0.0,
+                        constituents = noaaResponse.HarmonicConstituents
+                            .filter { it.name != "Z0" }
+                            .map { constituent ->
+                                HarmonicConstituent(
+                                    name = constituent.name,
+                                    speed = constituent.speed,
+                                    amplitude = constituent.amplitude,
+                                    phase = constituent.phase_GMT
+                                )
+                            }
+                    )
+                }
+            }.also { constants ->
+                // Cache the result
+                val now = Instant.now().toEpochMilli()
+                harmonicConstantsTable.putItem(
+                    HarmonicConstantsCache(
+                        stationId = stationId,
+                        harmonicConstants = constants,
+                        lastUpdated = now,
+                        ttl = now + harmonicCacheValidityPeriod
+                    )
+                )
+                logger.debug { "Cached harmonic constants for station $stationId" }
+            }
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to fetch harmonic constants for station $stationId" }
+            null
+        }
     }
 }
