@@ -2,6 +2,8 @@ package com.flowebb.tides
 
 import com.flowebb.tides.calculation.*
 import com.flowebb.tides.station.*
+import com.flowebb.tides.station.HarmonicConstants
+import com.flowebb.tides.station.HarmonicConstituent
 import kotlinx.coroutines.runBlocking
 import kotlin.test.*
 
@@ -11,7 +13,8 @@ class TideServiceTest {
             latitude: Double,
             longitude: Double,
             limit: Int,
-            preferredSource: StationSource?
+            preferredSource: StationSource?,
+            requireHarmonicConstants: Boolean
         ): List<Station> {
             return listOf(Station(
                 id = "TEST1",
@@ -22,7 +25,16 @@ class TideServiceTest {
                 latitude = latitude,
                 longitude = longitude,
                 source = StationSource.NOAA,
-                capabilities = setOf(StationType.WATER_LEVEL)
+                capabilities = setOf(StationType.WATER_LEVEL),
+                harmonicConstants = if (requireHarmonicConstants) {
+                    HarmonicConstants(
+                        stationId = "TEST1",
+                        meanSeaLevel = 0.0,
+                        constituents = listOf(
+                            HarmonicConstituent("M2", 28.984104, 4.128, 159.5)
+                        )
+                    )
+                } else null
             ))
         }
 
@@ -36,7 +48,14 @@ class TideServiceTest {
                 latitude = 47.0,
                 longitude = -122.0,
                 source = StationSource.NOAA,
-                capabilities = setOf(StationType.WATER_LEVEL)
+                capabilities = setOf(StationType.WATER_LEVEL),
+                harmonicConstants = HarmonicConstants(
+                    stationId = stationId,
+                    meanSeaLevel = 0.0,
+                    constituents = listOf(
+                        HarmonicConstituent("M2", 28.984104, 4.128, 159.5)
+                    )
+                )
             )
         }
     }

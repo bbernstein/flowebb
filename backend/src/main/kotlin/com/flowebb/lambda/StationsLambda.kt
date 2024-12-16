@@ -24,6 +24,7 @@ class StationsLambda : BaseHandler() {
         logger.info("Received request with parameters: ${input.queryStringParameters}")
 
         val params = input.queryStringParameters ?: mapOf()
+        val requireHarmonicConstants = params["requireHarmonicConstants"]?.toBoolean() ?: false
 
         return try {
             val stations = when {
@@ -40,8 +41,13 @@ class StationsLambda : BaseHandler() {
                         return error("Invalid coordinates")
                     }
 
-                    logger.info("Finding nearest stations for lat=$lat, lon=$lon")
-                    stationService.findNearestStations(lat, lon)
+                    logger.info("Finding nearest stations for lat=$lat, lon=$lon, requireHarmonicConstants=$requireHarmonicConstants")
+                    stationService.findNearestStations(
+                        latitude = lat,
+                        longitude = lon,
+                        preferredSource = null,
+                        requireHarmonicConstants = requireHarmonicConstants
+                    )
                 }
                 else -> {
                     logger.error("Missing required parameters")

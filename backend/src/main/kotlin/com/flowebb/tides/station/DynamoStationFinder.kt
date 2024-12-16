@@ -57,13 +57,19 @@ class DynamoStationFinder : StationFinder {
     override suspend fun findNearestStations(
         latitude: Double,
         longitude: Double,
-        limit: Int
+        limit: Int,
+        requireHarmonicConstants: Boolean
     ): List<Station> {
         logger.debug { "Finding nearest stations to lat=$latitude, lon=$longitude" }
 
         // For coordinate-based searches, always use NOAA finder to get fresh results
         // This ensures we always get the correct nearest stations
-        return noaaFinder.findNearestStations(latitude, longitude, limit).also {
+        return noaaFinder.findNearestStations(
+            latitude,
+            longitude,
+            limit,
+            requireHarmonicConstants
+        ).also {
             // Cache the individual stations for future lookups
             logger.debug { "Caching ${it.size} stations in $stationsTable" }
             it.forEach { station ->

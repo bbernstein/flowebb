@@ -9,3 +9,4 @@ venv/
 .next/
 build/
 .gradle/
+.swagger-codegen*
