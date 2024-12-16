@@ -12,6 +12,7 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbConvertedBy
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey
+import software.amazon.awssdk.enhanced.dynamodb.Key
 import mu.KotlinLogging
 
 @DynamoDbBean
@@ -184,13 +185,27 @@ class NoaaStationFinder(
     }
 
     private suspend fun fetchHarmonicConstants(stationId: String): HarmonicConstants? {
-        return try {
-            logger.debug { "Fetching harmonic constants for station $stationId" }
-            httpClient.get(
+        try {
+            logger.debug { "Checking cache for harmonic constants for station $stationId" }
+
+            // Try to get from cache first
+            val cachedItem = harmonicConstantsTable.getItem(
+                Key.builder().partitionValue(stationId).build()
+            )
+
+            if (cachedItem != null &&
+                (System.currentTimeMillis() - cachedItem.lastUpdated) < harmonicCacheValidityPeriod
+            ) {
+                logger.debug { "Using cached harmonic constants for station $stationId" }
+                return cachedItem.harmonicConstants
+            }
+
+            // If not in cache or expired, fetch from NOAA
+            logger.debug { "Fetching fresh harmonic constants from NOAA API for station $stationId" }
+            val constants = httpClient.get(
                 url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/$stationId/harcon.json"
             ) { response ->
                 response.body<NoaaHarmonicResponse>().let { noaaResponse ->
-                    // Only create HarmonicConstants if there are actual constituents
                     if (noaaResponse.HarmonicConstituents.isEmpty()) {
                         logger.debug { "Station $stationId has no harmonic constituents" }
                         null
@@ -213,9 +228,22 @@ class NoaaStationFinder(
                     }
                 }
             }
+
+            // Cache the result, even if null
+            val now = System.currentTimeMillis()
+            harmonicConstantsTable.putItem(
+                HarmonicConstantsCache(
+                    stationId = stationId,
+                    harmonicConstants = constants,
+                    lastUpdated = now,
+                    ttl = now + harmonicCacheValidityPeriod
+                )
+            )
+
+            return constants
         } catch (e: Exception) {
             logger.warn(e) { "Failed to fetch harmonic constants for station $stationId" }
-            null
+            return null
         }
     }
 }
