@@ -65,6 +65,7 @@ class DynamoStationFinder : StationFinder {
         // This ensures we always get the correct nearest stations
         return noaaFinder.findNearestStations(latitude, longitude, limit).also {
             // Cache the individual stations for future lookups
+            logger.debug { "Caching ${it.size} stations in $stationsTable" }
             it.forEach { station ->
                 stationsTable.putItem(station.toCacheItem())
             }

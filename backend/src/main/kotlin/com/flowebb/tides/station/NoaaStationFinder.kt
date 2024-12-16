@@ -35,12 +35,6 @@ class NoaaStationFinder(
     private val stationListCache: StationListCache = StationListCache()
 ) : StationFinder {
     private val logger = KotlinLogging.logger {}
-    private val PARTITION_SIZE = 100 // Number of stations per partition
-
-    private val stationListTable = DynamoConfig.enhancedClient.table(
-        "station-list-cache",
-        TableSchema.fromBean(StationListPartition::class.java)
-    )
 
     private val cacheValidityPeriod = 24.hours.inWholeMilliseconds
 
