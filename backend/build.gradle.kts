@@ -38,6 +38,7 @@ kotlin {
 dependencies {
     // Core dependencies
     implementation("org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version")
+    implementation("joda-time:joda-time:2.12.5")
 
     // Ktor client dependencies
     implementation("io.ktor:ktor-client-core:$ktor_version")
@@ -53,21 +54,28 @@ dependencies {
 
     // AWS SDK dependencies
     implementation(platform("software.amazon.awssdk:bom:$aws_sdk_version"))
-    implementation("software.amazon.awssdk:dynamodb")
-    implementation("software.amazon.awssdk:dynamodb-enhanced")
+    implementation("software.amazon.awssdk:dynamodb") {
+        exclude(group = "software.amazon.awssdk", module = "apache-client")
+    }
+    implementation("software.amazon.awssdk:dynamodb-enhanced") {
+        exclude(group = "software.amazon.awssdk", module = "apache-client")
+    }
+    implementation("software.amazon.awssdk:s3") {
+        exclude(group = "software.amazon.awssdk", module = "apache-client")
+    }
     implementation("software.amazon.awssdk:regions")
     implementation("software.amazon.awssdk:auth")
     implementation("software.amazon.awssdk:url-connection-client:$aws_sdk_version")
-    implementation("software.amazon.awssdk:s3")
 
     // Logging
+    implementation("org.slf4j:slf4j-api:2.0.9")
     implementation("ch.qos.logback:logback-classic:$logback_version")
-//    implementation("org.slf4j:slf4j-api:1.7.36")
     implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
 
     // Kotlin coroutines and serialization
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.0")
 
     // Testing
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5:$kotlin_version")
@@ -112,17 +120,39 @@ tasks {
         archiveClassifier.set("")
         archiveVersion.set("")
 
+        dependencies {
+            // Core dependencies
+            include(dependency("org.jetbrains.kotlin:.*"))
+            include(dependency("org.jetbrains.kotlinx:.*"))
+            include(dependency("joda-time:.*"))
+            include(dependency("com.amazonaws:.*"))
+            include(dependency("software.amazon.awssdk:.*"))
+            include(dependency("org.reactivestreams:.*"))
+
+            // Logging dependencies
+            include(dependency("io.github.microutils:kotlin-logging-jvm"))
+            include(dependency("org.slf4j:.*"))
+            include(dependency("ch.qos.logback:.*"))
+
+            // Ktor dependencies
+            include(dependency("io.ktor:.*"))
+        }
+
         mergeServiceFiles()
 
-        // Relocate AWS SDK classes to avoid conflicts
-        relocate("software.amazon.awssdk", "shadow.software.amazon.awssdk")
-
-        // Minimize the JAR but exclude necessary dependencies
         minimize {
-            exclude(dependency("io.ktor:.*:.*"))
-            exclude(dependency("software.amazon.awssdk:.*:.*"))
-            exclude(dependency("org.jetbrains.kotlinx:.*:.*"))
-            exclude(dependency("ch.qos.logback:.*:.*"))
+            // Keep all classes from these packages
+            exclude(dependency("org.jetbrains.kotlin:.*"))
+            exclude(dependency("org.jetbrains.kotlinx:.*"))
+            exclude(dependency("joda-time:.*"))
+            exclude(dependency("com.amazonaws:.*"))
+            exclude(dependency("io.ktor:.*"))
+            exclude(dependency("software.amazon.awssdk:.*"))
+            exclude(dependency("ch.qos.logback:.*"))
+            exclude(dependency("org.slf4j:.*"))
+            exclude(dependency("io.github.microutils:.*"))
+            exclude(dependency("software.amazon.awssdk:.*"))
+            exclude(dependency("org.reactivestreams:.*"))
         }
     }
 

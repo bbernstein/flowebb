@@ -3,6 +3,7 @@ package com.flowebb.tides.station
 import com.flowebb.config.DynamoConfig
 import com.flowebb.http.HttpClientService
 import com.flowebb.tides.calculation.GeoUtils
+import com.flowebb.tides.station.cache.StationListCache
 import io.ktor.client.call.*
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema
 import kotlin.time.Duration.Companion.hours
@@ -30,15 +31,10 @@ data class StationListPartition(
 
 @Suppress("unused")
 class NoaaStationFinder(
-    private val httpClient: HttpClientService = HttpClientService()
+    private val httpClient: HttpClientService = HttpClientService(),
+    private val stationListCache: StationListCache = StationListCache()
 ) : StationFinder {
     private val logger = KotlinLogging.logger {}
-    private val PARTITION_SIZE = 100 // Number of stations per partition
-
-    private val stationListTable = DynamoConfig.enhancedClient.table(
-        "station-list-cache",
-        TableSchema.fromBean(StationListPartition::class.java)
-    )
 
     private val cacheValidityPeriod = 24.hours.inWholeMilliseconds
 
@@ -50,70 +46,20 @@ class NoaaStationFinder(
     private val harmonicCacheValidityPeriod = 7.days.inWholeMilliseconds
 
     private suspend fun getStationList(): List<NoaaStationMetadata> {
-        // Try to get first partition to check if cache is valid
-        val firstPartition = stationListTable.getItem(
-            Key.builder()
-                .partitionValue("NOAA_STATION_LIST")
-                .sortValue(0)
-                .build()
-        )
-
-        if (firstPartition != null &&
-            (Instant.now().toEpochMilli() - firstPartition.lastUpdated) < cacheValidityPeriod
-        ) {
-            logger.debug { "Found valid first partition with ${firstPartition.stations.size} stations" }
-            logger.debug { "Total partitions: ${firstPartition.totalPartitions}" }
-
-            val allStations = getAllPartitions(firstPartition.totalPartitions)
-            logger.debug { "Retrieved ${allStations.size} total stations from cache" }
-            return allStations
+        // Try to get from cache first
+        stationListCache.getStationList()?.let { cached ->
+            if (stationListCache.isCacheValid()) {
+                logger.debug { "Using cached station list with ${cached.size} stations" }
+                return cached
+            }
         }
 
         // If not in cache or expired, fetch new data
         logger.debug { "Fetching fresh station list from NOAA API" }
-        val stations = fetchStationList()
-        logger.debug { "Fetched ${stations.size} stations from NOAA API" }
-
-        // Calculate number of partitions needed
-        val totalPartitions = (stations.size + PARTITION_SIZE - 1) / PARTITION_SIZE
-        logger.debug { "Splitting stations into $totalPartitions partitions" }
-
-        // Store in partitions
-        val now = Instant.now().toEpochMilli()
-        stations.chunked(PARTITION_SIZE).forEachIndexed { index, partition ->
-            logger.debug { "Storing partition $index with ${partition.size} stations" }
-            stationListTable.putItem(
-                StationListPartition(
-                    listId = "NOAA_STATION_LIST",
-                    partitionId = index,
-                    stations = partition,
-                    totalPartitions = totalPartitions,
-                    lastUpdated = now,
-                    ttl = now + cacheValidityPeriod
-                )
-            )
+        return fetchStationList().also { stations ->
+            logger.debug { "Fetched ${stations.size} stations from NOAA API" }
+            stationListCache.saveStationList(stations)
         }
-
-        return stations
-    }
-
-    private fun getAllPartitions(totalPartitions: Int): List<NoaaStationMetadata> {
-        logger.debug { "Retrieving all $totalPartitions partitions" }
-        val allStations = (0 until totalPartitions)
-            .map { partitionId ->
-                val partition = stationListTable.getItem(
-                    Key.builder()
-                        .partitionValue("NOAA_STATION_LIST")
-                        .sortValue(partitionId)
-                        .build()
-                )
-                logger.debug { "Retrieved partition $partitionId with ${partition?.stations?.size ?: 0} stations" }
-                partition?.stations ?: emptyList()
-            }
-            .flatten()
-
-        logger.debug { "Combined all partitions into ${allStations.size} total stations" }
-        return allStations
     }
 
     private suspend fun fetchStationList(): List<NoaaStationMetadata> {

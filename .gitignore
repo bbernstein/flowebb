@@ -4,7 +4,7 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
-/local-dev/
+local-cache/
 
 # Kotlin
 *.class
@@ -55,6 +55,7 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+.terraform.lock.hcl
 
 ### IDE ###
 # IntelliJ
