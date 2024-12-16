@@ -27,16 +27,25 @@ open class StationService(
         latitude: Double,
         longitude: Double,
         limit: Int = 5,
-        preferredSource: StationSource? = null
+        preferredSource: StationSource? = null,
+        requireHarmonicConstants: Boolean = false
     ): List<Station> {
-        logger.debug { "Finding nearest stations: lat=$latitude, lon=$longitude, limit=$limit, preferred=$preferredSource" }
+        logger.debug {
+            "Finding nearest stations: lat=$latitude, lon=$longitude, limit=$limit, " +
+                    "preferred=$preferredSource, requireHarmonicConstants=$requireHarmonicConstants"
+        }
 
         // If preferred source is specified, try it first
         if (preferredSource != null) {
             finders[preferredSource]?.let { finder ->
                 try {
                     logger.debug { "Attempting to find stations with preferred source: $preferredSource" }
-                    return finder.findNearestStations(latitude, longitude, limit)
+                    return finder.findNearestStations(
+                        latitude,
+                        longitude,
+                        limit,
+                        requireHarmonicConstants
+                    )
                 } catch (e: Exception) {
                     logger.warn(e) { "Failed to find stations with preferred source" }
                 }
@@ -47,7 +56,12 @@ open class StationService(
         for ((source, finder) in finders) {
             try {
                 logger.debug { "Attempting to find stations with source: $source" }
-                return finder.findNearestStations(latitude, longitude, limit)
+                return finder.findNearestStations(
+                    latitude,
+                    longitude,
+                    limit,
+                    requireHarmonicConstants
+                )
             } catch (e: Exception) {
                 logger.warn(e) { "Failed to find stations with $source finder" }
                 continue

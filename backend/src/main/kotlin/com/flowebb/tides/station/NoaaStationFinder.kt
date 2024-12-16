@@ -8,8 +8,6 @@ import io.ktor.client.call.*
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.days
-import software.amazon.awssdk.enhanced.dynamodb.Key
-import java.time.Instant
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbConvertedBy
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey
@@ -96,16 +94,19 @@ class NoaaStationFinder(
     override suspend fun findNearestStations(
         latitude: Double,
         longitude: Double,
-        limit: Int
+        limit: Int,
+        requireHarmonicConstants: Boolean
     ): List<Station> {
-        logger.debug { "Finding nearest stations to lat=$latitude, lon=$longitude" }
+        logger.debug {
+            "Finding nearest stations to lat=$latitude, lon=$longitude " +
+                    "with harmonicConstants=${requireHarmonicConstants}"
+        }
 
-        // Always get the full station list first
         val allStations = getStationList()
         logger.debug { "Retrieved ${allStations.size} total stations for processing" }
 
-        // Calculate distances and find nearest stations
-        val nearestStations = allStations
+        // Calculate and sort distances for all stations
+        val stationsWithDistances = allStations
             .map { stationData ->
                 val distance = GeoUtils.calculateDistance(
                     latitude,
@@ -116,76 +117,101 @@ class NoaaStationFinder(
                 stationData to distance
             }
             .sortedBy { it.second }
-            .take(limit)
 
-        logger.debug { "Found ${nearestStations.size} nearest stations" }
-        logger.debug { "Nearest station distances: ${nearestStations.map { it.second }}" }
+        val result = mutableListOf<Station>()
+        var processedCount = 0
+        val batchSize = 10  // Process stations in batches
 
-        // Convert to Station objects and return
-        return nearestStations.map { (stationData, distance) ->
-            Station(
-                id = stationData.stationId,
-                name = stationData.stationName,
-                state = stationData.state,
-                region = stationData.region,
-                distance = distance,
-                latitude = stationData.lat,
-                longitude = stationData.lon,
-                source = StationSource.NOAA,
-                capabilities = setOf(StationType.WATER_LEVEL),
-                harmonicConstants = fetchHarmonicConstants(stationData.stationId)
-            )
+        // Keep fetching stations until we have enough or run out
+        while (result.size < limit && processedCount < stationsWithDistances.size) {
+            val batch = stationsWithDistances
+                .subList(
+                    processedCount,
+                    minOf(processedCount + batchSize, stationsWithDistances.size)
+                )
+
+            logger.debug {
+                "Processing batch of ${batch.size} stations " +
+                        "(${result.size}/${limit} stations found so far)"
+            }
+
+            // Process this batch of stations
+            for ((stationData, distance) in batch) {
+                val harmonicConstants = if (requireHarmonicConstants) {
+                    fetchHarmonicConstants(stationData.stationId)
+                } else null
+
+                // Skip if we need harmonic constants but they're missing or empty
+                if (requireHarmonicConstants &&
+                    (harmonicConstants == null || harmonicConstants.constituents.isEmpty())
+                ) {
+                    logger.debug {
+                        "Skipping station ${stationData.stationId} - " +
+                                "no harmonic constants available"
+                    }
+                    continue
+                }
+
+                result.add(
+                    Station(
+                        id = stationData.stationId,
+                        name = stationData.stationName,
+                        state = stationData.state,
+                        region = stationData.region,
+                        distance = distance,
+                        latitude = stationData.lat,
+                        longitude = stationData.lon,
+                        source = StationSource.NOAA,
+                        capabilities = setOf(StationType.WATER_LEVEL),
+                        harmonicConstants = harmonicConstants
+                    )
+                )
+
+                if (result.size >= limit) {
+                    break
+                }
+            }
+
+            processedCount += batch.size
         }
+
+        logger.debug {
+            "Found ${result.size} suitable stations after processing " +
+                    "$processedCount total stations"
+        }
+
+        return result
     }
 
     private suspend fun fetchHarmonicConstants(stationId: String): HarmonicConstants? {
-        // Try to get from cache first
-        val cachedConstants = harmonicConstantsTable.getItem(
-            Key.builder().partitionValue(stationId).build()
-        )
-
-        if (cachedConstants != null &&
-            (Instant.now().toEpochMilli() - cachedConstants.lastUpdated) < harmonicCacheValidityPeriod
-        ) {
-            logger.debug { "Found cached harmonic constants for station $stationId" }
-            return cachedConstants.harmonicConstants
-        }
-
-        // If not in cache or expired, fetch from API
         return try {
-            logger.debug { "Fetching harmonic constants from NOAA API for station $stationId" }
+            logger.debug { "Fetching harmonic constants for station $stationId" }
             httpClient.get(
                 url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/$stationId/harcon.json"
             ) { response ->
                 response.body<NoaaHarmonicResponse>().let { noaaResponse ->
-                    HarmonicConstants(
-                        stationId = stationId,
-                        meanSeaLevel = noaaResponse.HarmonicConstituents
-                            .find { it.name == "Z0" }?.amplitude ?: 0.0,
-                        constituents = noaaResponse.HarmonicConstituents
-                            .filter { it.name != "Z0" }
-                            .map { constituent ->
-                                HarmonicConstituent(
-                                    name = constituent.name,
-                                    speed = constituent.speed,
-                                    amplitude = constituent.amplitude,
-                                    phase = constituent.phase_GMT
-                                )
-                            }
-                    )
+                    // Only create HarmonicConstants if there are actual constituents
+                    if (noaaResponse.HarmonicConstituents.isEmpty()) {
+                        logger.debug { "Station $stationId has no harmonic constituents" }
+                        null
+                    } else {
+                        HarmonicConstants(
+                            stationId = stationId,
+                            meanSeaLevel = noaaResponse.HarmonicConstituents
+                                .find { it.name == "Z0" }?.amplitude ?: 0.0,
+                            constituents = noaaResponse.HarmonicConstituents
+                                .filter { it.name != "Z0" }
+                                .map { constituent ->
+                                    HarmonicConstituent(
+                                        name = constituent.name,
+                                        speed = constituent.speed,
+                                        amplitude = constituent.amplitude,
+                                        phase = constituent.phase_GMT
+                                    )
+                                }
+                        )
+                    }
                 }
-            }.also { constants ->
-                // Cache the result
-                val now = Instant.now().toEpochMilli()
-                harmonicConstantsTable.putItem(
-                    HarmonicConstantsCache(
-                        stationId = stationId,
-                        harmonicConstants = constants,
-                        lastUpdated = now,
-                        ttl = now + harmonicCacheValidityPeriod
-                    )
-                )
-                logger.debug { "Cached harmonic constants for station $stationId" }
             }
         } catch (e: Exception) {
             logger.warn(e) { "Failed to fetch harmonic constants for station $stationId" }
