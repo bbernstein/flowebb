@@ -149,6 +149,11 @@ resource "aws_cloudfront_distribution" "main" {
       restriction_type = "none"
     }
   }
+
+  depends_on = [
+    aws_acm_certificate_validation.main,
+    aws_cloudfront_origin_access_identity.frontend
+  ]
 }
 
 resource "aws_route53_record" "frontend" {
@@ -209,4 +214,5 @@ resource "aws_s3_bucket_policy" "frontend" {
       }
     ]
   })
+  depends_on = [aws_cloudfront_origin_access_identity.frontend]
 }
