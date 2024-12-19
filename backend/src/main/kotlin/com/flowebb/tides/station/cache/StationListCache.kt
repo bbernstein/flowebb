@@ -51,6 +51,7 @@ class StationListCache(
     init {
         if (isLocalDevelopment) {
             initializeLocalCache()
+            logger.info { "Cache directory is: $localCacheDir" }
         }
     }
 
@@ -129,7 +130,7 @@ class StationListCache(
         val count: Int
     )
 
-    suspend fun getStationList(): List<NoaaStationMetadata>? {
+    fun getStationList(): List<NoaaStationMetadata>? {
         return if (isLocalDevelopment) {
             getLocalStationList()
         } else {
@@ -137,7 +138,7 @@ class StationListCache(
         }
     }
 
-    suspend fun saveStationList(stations: List<NoaaStationMetadata>) {
+    fun saveStationList(stations: List<NoaaStationMetadata>) {
         if (isLocalDevelopment) {
             saveLocalStationList(stations)
         } else {

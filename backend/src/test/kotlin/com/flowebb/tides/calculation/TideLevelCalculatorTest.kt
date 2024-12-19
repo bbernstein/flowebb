@@ -1,15 +1,25 @@
 package com.flowebb.tides.calculation
 
+import com.flowebb.http.HttpClientService
 import com.flowebb.tides.station.Station
 import com.flowebb.tides.station.StationSource
 import com.flowebb.tides.station.StationType
-import kotlinx.coroutines.runBlocking
-import kotlin.test.*
+import io.mockk.coEvery
+import io.mockk.mockk
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import org.junit.jupiter.api.Test
+import java.time.Instant
+import java.time.ZoneOffset
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
+import kotlinx.coroutines.test.runTest
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class TideLevelCalculatorTest {
-    private val calculator = TideLevelCalculator()
+    private val mockHttpClient = mockk<HttpClientService>()
+    private val calculator = TideLevelCalculator(mockHttpClient)
 
-    // Create a test station to use
     private val testStation = Station(
         id = "TEST1",
         name = "Test Station",
@@ -19,7 +29,9 @@ class TideLevelCalculatorTest {
         latitude = 47.0,
         longitude = -122.0,
         source = StationSource.NOAA,
-        capabilities = setOf(StationType.WATER_LEVEL)
+        capabilities = setOf(StationType.WATER_LEVEL),
+        timeZoneOffset = ZoneOffset.ofHours(-8),
+        stationType = "R"
     )
 
     @Test
@@ -35,23 +47,33 @@ class TideLevelCalculatorTest {
     }
 
     @Test
-    fun `determineTideType correctly identifies high tide`() {
-        val type = calculator.determineTideType(7.0, 7.0)
-        assertEquals(TideType.HIGH, type)
-    }
+    fun getCurrentTideLevel() {
+        runTest {
+            coEvery {
+                mockHttpClient.get<List<NoaaPrediction>>(
+                    url = match { it.contains("tidesandcurrents.noaa.gov") },
+                    headers = any(),
+                    queryParams = any(),
+                    transform = any()
+                )
+            } returns listOf(
+                NoaaPrediction(
+                    t = "2024-12-15 12:00",
+                    v = "5.0",
+                    type = null
+                ),
+                NoaaPrediction(
+                    t = "2024-12-15 18:15",
+                    v = "7.5",
+                    type = null
+                )
+            )
+            val testTime = Instant.parse("2024-12-15T15:00:00Z").toEpochMilli()
+            val tideLevel = calculator.getCurrentTideLevel(testStation, testTime)
 
-    @Test
-    fun `determineTideType correctly identifies low tide`() {
-        val type = calculator.determineTideType(2.0, 2.0)
-        assertEquals(TideType.LOW, type)
-    }
-
-    @Test
-    fun `getCurrentTideLevel returns valid TideLevel object`() = runBlocking {
-        val tideLevel = calculator.getCurrentTideLevel(testStation, 0L)
-        assertNotNull(tideLevel)
-        assertTrue(tideLevel.waterLevel >= 0)
-        assertEquals(tideLevel.waterLevel, tideLevel.predictedLevel)
-        assertNotNull(tideLevel.type)
-    }
+            assertNotNull(tideLevel)
+            assertTrue(tideLevel.waterLevel >= 0)
+            assertEquals(tideLevel.waterLevel, tideLevel.predictedLevel)
+            assertNotNull(tideLevel.type)
+        }    }
 }

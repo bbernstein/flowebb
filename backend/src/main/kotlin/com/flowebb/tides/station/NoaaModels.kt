@@ -9,6 +9,7 @@ data class NoaaStationMetadata(
     val lat: Double,
     val lon: Double,
     val state: String? = null,
+    val type: String? = null,  // This maps to stationType
     val distance: Double? = null,
     val stationName: String? = null,
     val region: String? = null,
@@ -30,17 +31,4 @@ data class NoaaStationMetadata(
 @Serializable
 data class NoaaStationsResponse(
     val stationList: List<NoaaStationMetadata>
-)
-
-@Serializable
-data class NoaaHarmonicResponse(
-    val HarmonicConstituents: List<NoaaConstituent>
-)
-
-@Serializable
-data class NoaaConstituent(
-    val name: String,
-    val speed: Double,
-    val amplitude: Double,
-    val phase_GMT: Double
 )

@@ -1,5 +1,7 @@
 package com.flowebb.tides.api
 
+import com.flowebb.tides.calculation.TideExtreme
+import com.flowebb.tides.calculation.TidePrediction
 import com.flowebb.tides.calculation.TideType
 import com.flowebb.tides.station.Station
 import kotlinx.serialization.SerialName
@@ -12,25 +14,28 @@ sealed interface ApiResponse {
 }
 
 @Serializable
-@SerialName("tide")  // Add this to specify the concrete type
-data class TideResponse(
-    override val responseType: String = "tide",  // Add this field
+@SerialName("stations")
+data class StationsResponse(
+    override val responseType: String = "stations",
+    val stations: List<Station>
+) : ApiResponse
+
+@Serializable
+data class ExtendedTideResponse(
+    override val responseType: String = "tide",
     val timestamp: Long,
     val waterLevel: Double,
     val predictedLevel: Double,
     val nearestStation: String,
     val location: String?,
+    val latitude: Double,
+    val longitude: Double,
     val stationDistance: Double,
-    @SerialName("tideType")  // Rename the property to avoid conflict
+    @SerialName("tideType")
     val type: TideType,
-    val calculationMethod: String
-) : ApiResponse
-
-@Serializable
-@SerialName("stations")
-data class StationsResponse(
-    override val responseType: String = "stations",
-    val stations: List<Station>
+    val calculationMethod: String,
+    val extremes: List<TideExtreme>,
+    val predictions: List<TidePrediction>
 ) : ApiResponse
 
 @Serializable
@@ -39,3 +44,4 @@ data class ErrorResponse(
     override val responseType: String = "error",
     val error: String
 ) : ApiResponse
+
