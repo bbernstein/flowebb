@@ -28,10 +28,8 @@ class TidesLambda : BaseHandler() {
         return try {
             val tideInfo = when {
                 params["stationId"] != null -> {
-                    val useCalculation = params["useCalculation"]?.toBoolean() ?: false
                     tideService.getCurrentTideForStation(
-                        params["stationId"]!!,
-                        useCalculation
+                        params["stationId"]!!
                     )
                 }
                 params["lat"] != null && params["lon"] != null -> {
@@ -42,8 +40,10 @@ class TidesLambda : BaseHandler() {
                         return error("Invalid coordinates")
                     }
 
-                    val useCalculation = params["useCalculation"]?.toBoolean() ?: false
-                    tideService.getCurrentTide(lat, lon, useCalculation)
+                    tideService.getCurrentTide(
+                        lat,
+                        lon
+                    )
                 }
                 else -> return error("Missing required parameters")
             }

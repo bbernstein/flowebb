@@ -7,6 +7,7 @@ val logback_version: String by project
 val aws_lambda_version = "1.2.1"
 val aws_lambda_events_version = "3.11.0"
 val aws_sdk_version = "2.20.68"
+val coroutines_version = "1.7.3"
 
 plugins {
     kotlin("jvm") version "2.0.21"
@@ -73,7 +74,7 @@ dependencies {
     implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
 
     // Kotlin coroutines and serialization
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutines_version")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.0")
 
@@ -83,6 +84,9 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter:5.8.1")
     testImplementation("io.mockk:mockk:1.13.8")
     testImplementation("io.mockk:mockk-agent-jvm:1.13.8")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutines_version") {
+        exclude("org.jetbrains.kotlinx", "kotlinx-coroutines-core")
+    }
 }
 
 tasks {

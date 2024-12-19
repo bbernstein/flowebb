@@ -45,8 +45,7 @@ class StationsLambda : BaseHandler() {
                     stationService.findNearestStations(
                         latitude = lat,
                         longitude = lon,
-                        preferredSource = null,
-                        requireHarmonicConstants = requireHarmonicConstants
+                        preferredSource = null
                     )
                 }
                 else -> {

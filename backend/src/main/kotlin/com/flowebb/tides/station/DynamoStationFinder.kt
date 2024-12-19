@@ -1,23 +1,37 @@
 package com.flowebb.tides.station
 
 import com.flowebb.config.DynamoConfig
+import mu.KotlinLogging
 import software.amazon.awssdk.enhanced.dynamodb.*
 import java.time.Instant
-import mu.KotlinLogging
+import java.time.ZoneOffset
 import kotlin.time.Duration.Companion.days
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean
-import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbConvertedBy
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey
+import kotlinx.serialization.Serializable
 
 @DynamoDbBean
-data class HarmonicConstantsCache(
+@Serializable
+data class StationCacheItem(
     @get:DynamoDbPartitionKey
     var stationId: String = "",
-    @get:DynamoDbConvertedBy(HarmonicConstantsConverter::class)
-    var harmonicConstants: HarmonicConstants? = null,
+    var name: String? = null,
+    var state: String? = null,
+    var region: String? = null,
+    var latitude: Double = 0.0,
+    var longitude: Double = 0.0,
+    var source: String = "",
+    var capabilities: Set<String> = emptySet(),
     var lastUpdated: Long = 0,
-    var ttl: Long = 0
-)
+    var ttl: Long = 0,
+    var timeZoneOffset: Int? = null,
+    var level: String? = null,
+    var stationType: String? = null
+) {
+    // Required no-arg constructor
+    @Suppress("unused")
+    constructor() : this(stationId = "")
+}
 
 class DynamoStationFinder : StationFinder {
     private val logger = KotlinLogging.logger {}
@@ -57,8 +71,7 @@ class DynamoStationFinder : StationFinder {
     override suspend fun findNearestStations(
         latitude: Double,
         longitude: Double,
-        limit: Int,
-        requireHarmonicConstants: Boolean
+        limit: Int
     ): List<Station> {
         logger.debug { "Finding nearest stations to lat=$latitude, lon=$longitude" }
 
@@ -67,11 +80,10 @@ class DynamoStationFinder : StationFinder {
         return noaaFinder.findNearestStations(
             latitude,
             longitude,
-            limit,
-            requireHarmonicConstants
+            limit
         ).also {
             // Cache the individual stations for future lookups
-            logger.debug { "Caching ${it.size} stations in $stationsTable" }
+            logger.debug { "Caching ${it.size} stations" }
             it.forEach { station ->
                 stationsTable.putItem(station.toCacheItem())
             }
@@ -85,17 +97,19 @@ class DynamoStationFinder : StationFinder {
             name = name,
             state = state,
             region = region,
-            distance = 0.0, // This will be calculated when needed
+            distance = 0.0,
             latitude = latitude,
             longitude = longitude,
             source = StationSource.valueOf(source),
             capabilities = capabilities.map { StationType.valueOf(it) }.toSet(),
-            harmonicConstants = harmonicConstants
+            timeZoneOffset = timeZoneOffset?.let { ZoneOffset.ofHours(it) },
+            level = level,
+            stationType = stationType
         )
     }
 
     private fun Station.toCacheItem(): StationCacheItem {
-        val now = Instant.now().toEpochMilli()
+        val now = System.currentTimeMillis()
         return StationCacheItem(
             stationId = id,
             name = name,
@@ -105,9 +119,11 @@ class DynamoStationFinder : StationFinder {
             longitude = longitude,
             source = source.name,
             capabilities = capabilities.map { it.name }.toSet(),
-            harmonicConstants = harmonicConstants,
             lastUpdated = now,
-            ttl = now + cacheValidityPeriod
+            ttl = now + cacheValidityPeriod,
+            timeZoneOffset = timeZoneOffset?.totalSeconds?.div(3600),
+            level = level,
+            stationType = stationType
         )
     }
 }

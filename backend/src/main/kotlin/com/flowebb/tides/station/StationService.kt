@@ -14,6 +14,7 @@ open class StationService(
             try {
                 logger.debug { "Attempting to find station with $source finder" }
                 return finder.findStation(stationId)
+                    .also { logger.debug { "Found station: $it" } }
             } catch (e: Exception) {
                 logger.error(e) { "Failed to find station with $source finder" }
                 // Log the full stack trace
@@ -27,12 +28,11 @@ open class StationService(
         latitude: Double,
         longitude: Double,
         limit: Int = 5,
-        preferredSource: StationSource? = null,
-        requireHarmonicConstants: Boolean = false
+        preferredSource: StationSource? = null
     ): List<Station> {
         logger.debug {
             "Finding nearest stations: lat=$latitude, lon=$longitude, limit=$limit, " +
-                    "preferred=$preferredSource, requireHarmonicConstants=$requireHarmonicConstants"
+                    "preferred=$preferredSource"
         }
 
         // If preferred source is specified, try it first
@@ -43,8 +43,7 @@ open class StationService(
                     return finder.findNearestStations(
                         latitude,
                         longitude,
-                        limit,
-                        requireHarmonicConstants
+                        limit
                     )
                 } catch (e: Exception) {
                     logger.warn(e) { "Failed to find stations with preferred source" }
@@ -59,8 +58,7 @@ open class StationService(
                 return finder.findNearestStations(
                     latitude,
                     longitude,
-                    limit,
-                    requireHarmonicConstants
+                    limit
                 )
             } catch (e: Exception) {
                 logger.warn(e) { "Failed to find stations with $source finder" }

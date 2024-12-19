@@ -17,6 +17,19 @@ data class TideLevel(
 )
 
 @Serializable
+data class TideExtreme(
+    val type: TideType,
+    val timestamp: Long,
+    val height: Double
+)
+
+@Serializable
+data class TidePrediction(
+    val timestamp: Long,
+    val height: Double
+)
+
+@Serializable
 data class NoaaResponse(
     val predictions: List<NoaaPrediction>
 )

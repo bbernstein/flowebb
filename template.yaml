@@ -8,7 +8,7 @@ Globals:
     MemorySize: 512
     Runtime: java11
     Architectures:
-      - x86_64
+      - arm64
     AutoPublishAlias: live
     Environment:
       Variables:

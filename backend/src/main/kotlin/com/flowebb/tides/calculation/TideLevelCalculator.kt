@@ -2,83 +2,141 @@ package com.flowebb.tides.calculation
 
 import com.flowebb.http.HttpClientService
 import com.flowebb.tides.station.Station
+import io.ktor.client.call.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import mu.KotlinLogging
-import java.time.Instant
-import java.time.ZoneOffset
+import java.time.*
 import java.time.format.DateTimeFormatter
-import kotlin.math.*
-import io.ktor.client.call.*
 
 open class TideLevelCalculator(
-    private val httpClient: HttpClientService = HttpClientService(),
-    private val useNoaaApi: Boolean = false
+    private val httpClient: HttpClientService = HttpClientService()
 ) {
     private val logger = KotlinLogging.logger {}
+    private val noaaDateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        .withZone(ZoneOffset.UTC)
 
-    open suspend fun calculateLevel(station: Station, timestamp: Long): Double = withContext(Dispatchers.IO) {
-        if (useNoaaApi ) {
-            try {
-                getNoaaLevel(station.id, timestamp)
-            } catch (e: Exception) {
-                logger.warn(e) { "Failed to get NOAA level, falling back to harmonic calculation" }
-                calculateHarmonicLevel(station, timestamp)
-            }
-        } else {
-            calculateHarmonicLevel(station, timestamp)
+    internal fun getStationZoneId(station: Station): ZoneId {
+        return station.timeZoneOffset?.let { ZoneId.ofOffset("", it) }
+            ?: ZoneOffset.UTC
+    }
+
+    suspend fun calculateLevel(
+        station: Station,
+        timestamp: Long
+    ): Double = withContext(Dispatchers.IO) {
+        try {
+            getNoaaLevel(station, timestamp)
+        } catch (e: Exception) {
+            logger.error(e) { "Failed to get NOAA level for station ${station.id}" }
+            throw e
         }
     }
 
-    private suspend fun getNoaaLevel(stationId: String, timestamp: Long): Double = withContext(Dispatchers.IO) {
-        val beginInstant = Instant.ofEpochMilli(timestamp - 6 * 3600000) // 6 hours before
-        val endInstant = Instant.ofEpochMilli(timestamp + 6 * 3600000)   // 6 hours after
+    private suspend fun getNoaaLevel(station: Station, timestamp: Long): Double = withContext(Dispatchers.IO) {
+        val zoneId = getStationZoneId(station)
+        val instant = Instant.ofEpochMilli(timestamp)
+        val stationTime = instant.atZone(zoneId)
+
+        val beginInstant = stationTime.minusHours(12).toInstant()
+        val endInstant = stationTime.plusHours(12).toInstant()
 
         val dateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm")
-            .withZone(ZoneOffset.UTC)
+            .withZone(zoneId)
 
         val beginDate = dateFormatter.format(beginInstant)
         val endDate = dateFormatter.format(endInstant)
 
-        val queryParams = mapOf(
-            "station" to stationId,
-            "begin_date" to beginDate,
-            "end_date" to endDate,
-            "product" to "predictions",
-            "datum" to "MLLW",
-            "units" to "english",
-            "time_zone" to "gmt",
-            "format" to "json"
-        )
+        logger.debug { "Getting NOAA level for station ${station.id} (type: ${station.stationType}) between $beginDate and $endDate" }
 
-        httpClient.get(
+        // for subordinate stations (S), use HILO and interpolate
+        val predictions = if (station.stationType == "S") {
+            getHiloPredictions(station, beginDate, endDate)
+        } else {
+            getDetailedPredictions(station, beginDate, endDate)
+        }
+
+        interpolatePredictions(predictions, timestamp)
+    }
+
+    private suspend fun getDetailedPredictions(
+        station: Station,
+        beginDate: String,
+        endDate: String
+    ): List<NoaaPrediction> {
+        return httpClient.get(
             url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter",
-            queryParams = queryParams
+            queryParams = mapOf(
+                "station" to station.id,
+                "begin_date" to beginDate,
+                "end_date" to endDate,
+                "product" to "predictions",
+                "datum" to "MLLW",
+                "units" to "english",
+                "time_zone" to "lst",
+                "format" to "json",
+                "interval" to "6"
+            )
         ) { response ->
-            response.body<NoaaResponse>().predictions.let { predictions ->
-                interpolatePredictions(predictions, timestamp)
-            }
+            response.body<NoaaResponse>().predictions
+        }
+    }
+
+    private suspend fun getHiloPredictions(
+        station: Station,
+        beginDate: String,
+        endDate: String
+    ): List<NoaaPrediction> {
+        return httpClient.get(
+            url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter",
+            queryParams = mapOf(
+                "station" to station.id,
+                "begin_date" to beginDate,
+                "end_date" to endDate,
+                "product" to "predictions",
+                "datum" to "MLLW",
+                "units" to "english",
+                "time_zone" to "lst",
+                "format" to "json",
+                "interval" to "hilo"
+            )
+        ) { response ->
+            response.body<NoaaResponse>().predictions
         }
     }
 
     private fun interpolatePredictions(predictions: List<NoaaPrediction>, timestamp: Long): Double {
-        val sorted = predictions.sortedBy { Instant.parse(it.t).toEpochMilli() }
-        val idx = sorted.binarySearch {
-            Instant.parse(it.t).toEpochMilli().compareTo(timestamp)
+        val sorted = predictions.sortedBy {
+            LocalDateTime.parse(it.t, noaaDateFormatter)
+                .toInstant(ZoneOffset.UTC)
+                .toEpochMilli()
         }
+
+        val idx = sorted.binarySearch {
+            LocalDateTime.parse(it.t, noaaDateFormatter)
+                .toInstant(ZoneOffset.UTC)
+                .toEpochMilli()
+                .compareTo(timestamp)
+        }
+
+        logger.debug { "Interpolating prediction for timestamp $timestamp idx=$idx" }
 
         return if (idx >= 0) {
             sorted[idx].v.toDouble()
         } else {
             val insertionPoint = -(idx + 1)
             if (insertionPoint == 0 || insertionPoint >= sorted.size) {
-                sorted.firstOrNull()?.v?.toDouble() ?: calculateHarmonicLevel(null, timestamp)
+                throw IllegalStateException("No predictions available for the requested time")
             } else {
                 val before = sorted[insertionPoint - 1]
                 val after = sorted[insertionPoint]
 
-                val t1 = Instant.parse(before.t).toEpochMilli()
-                val t2 = Instant.parse(after.t).toEpochMilli()
+                val t1 = LocalDateTime.parse(before.t, noaaDateFormatter)
+                    .toInstant(ZoneOffset.UTC)
+                    .toEpochMilli()
+                val t2 = LocalDateTime.parse(after.t, noaaDateFormatter)
+                    .toInstant(ZoneOffset.UTC)
+                    .toEpochMilli()
                 val v1 = before.v.toDouble()
                 val v2 = after.v.toDouble()
 
@@ -86,41 +144,6 @@ open class TideLevelCalculator(
                 v1 + (v2 - v1) * (timestamp - t1) / (t2 - t1)
             }
         }
-    }
-
-    private fun calculateHarmonicLevel(station: Station?, timestamp: Long): Double {
-        if (station?.harmonicConstants != null) {
-            val hours = timestamp / 3600000.0
-
-            // Calculate the contribution of each constituent
-            val constituentsSum = station.harmonicConstants.constituents.sumOf { constituent ->
-                val speedRadians = Math.toRadians(constituent.speed)
-                val phaseRadians = Math.toRadians(constituent.phase)
-                constituent.amplitude * cos(speedRadians * hours + phaseRadians)
-            }
-
-            return station.harmonicConstants.meanSeaLevel + constituentsSum
-        }
-
-        return defaultHarmonicCalculation(timestamp)
-    }
-
-    private fun defaultHarmonicCalculation(timestamp: Long): Double {
-        val hours = timestamp / 3600000.0
-
-        val m2Speed = 2 * PI / HarmonicConstants.M2
-        val s2Speed = 2 * PI / HarmonicConstants.S2
-        val n2Speed = 2 * PI / HarmonicConstants.N2
-        val k1Speed = 2 * PI / HarmonicConstants.K1
-        val o1Speed = 2 * PI / HarmonicConstants.O1
-
-        val m2 = 2.0 * cos(m2Speed * hours)
-        val s2 = 1.0 * cos(s2Speed * hours + PI / 4)
-        val n2 = 0.5 * cos(n2Speed * hours + PI / 3)
-        val k1 = 0.5 * cos(k1Speed * hours + PI / 6)
-        val o1 = 0.3 * cos(o1Speed * hours + PI / 2)
-
-        return 4.0 + m2 + s2 + n2 + k1 + o1
     }
 
     fun determineTideType(currentLevel: Double, previousLevel: Double): TideType {
@@ -132,27 +155,170 @@ open class TideLevelCalculator(
         }
     }
 
-    open suspend fun getCurrentTideLevel(
+    suspend fun getCurrentTideLevel(
         station: Station,
-        timestamp: Long,
-        forceHarmonicCalculation: Boolean = false
+        timestamp: Long
     ): TideLevel {
-        val currentLevel = if (forceHarmonicCalculation) {
-            calculateHarmonicLevel(station, timestamp)
-        } else {
-            calculateLevel(station, timestamp)
-        }
-
-        val previousLevel = if (forceHarmonicCalculation) {
-            calculateHarmonicLevel(station, timestamp - 3600000)
-        } else {
-            calculateLevel(station, timestamp - 3600000)
-        }
+        val currentLevel = calculateLevel(station, timestamp)
+        val previousLevel = calculateLevel(station, timestamp - 3600000)
 
         return TideLevel(
             waterLevel = currentLevel,
             predictedLevel = currentLevel,
             type = determineTideType(currentLevel, previousLevel)
         )
+    }
+
+    suspend fun findExtremes(
+        station: Station,
+        startTime: Long,
+        endTime: Long
+    ): List<TideExtreme> = withContext(Dispatchers.IO) {
+        getNoaaExtremes(station, startTime, endTime)
+    }
+
+    suspend fun getPredictions(
+        station: Station,
+        startTime: Long,
+        endTime: Long,
+        interval: Duration
+    ): List<TidePrediction> = withContext(Dispatchers.IO) {
+        val zoneId = getStationZoneId(station)
+
+        // For subordinate stations (S), use HILO and interpolate
+        if (station.stationType == "S") {
+            logger.debug { "Using HILO predictions for subordinate station ${station.id}" }
+            // Get HILO predictions and interpolate
+            getNoaaExtremes(station, startTime, endTime).let { extremes ->
+                interpolateExtremes(extremes, startTime, endTime, interval)
+            }
+        } else {
+            // For reference stations (R), use detailed predictions
+            logger.debug { "Using detailed predictions for reference station ${station.id}" }
+            getNoaaPredictions(station, startTime, endTime, zoneId, interval)
+        }
+    }
+
+    private fun interpolateExtremes(
+        extremes: List<TideExtreme>,
+        startTime: Long,
+        endTime: Long,
+        interval: Duration
+    ): List<TidePrediction> {
+        if (extremes.isEmpty()) return emptyList()
+
+        val predictions = mutableListOf<TidePrediction>()
+        var currentTime = startTime
+
+        // 6 hours in milliseconds
+        val sixHoursMs = Duration.ofHours(6).toMillis()
+
+        while (currentTime <= endTime) {
+            // Find the surrounding extremes
+            val surroundingExtremes = extremes
+                .filter { it.timestamp >= currentTime - sixHoursMs }
+                .filter { it.timestamp <= currentTime + sixHoursMs }
+                .sortedBy { it.timestamp }
+                .take(2)
+
+            if (surroundingExtremes.size == 2) {
+                val before = surroundingExtremes[0]
+                val after = surroundingExtremes[1]
+
+                // Linear interpolation
+                val progress = (currentTime - before.timestamp).toDouble() /
+                        (after.timestamp - before.timestamp).toDouble()
+                val height = before.height + (after.height - before.height) * progress
+
+                predictions.add(
+                    TidePrediction(
+                        timestamp = currentTime,
+                        height = height
+                    )
+                )
+            }
+
+            currentTime += interval.toMillis()
+        }
+
+        return predictions
+    }
+
+    private suspend fun getNoaaPredictions(
+        station: Station,
+        startTime: Long,
+        endTime: Long,
+        zoneId: ZoneId,
+        interval: Duration = Duration.ofMinutes(6)
+    ): List<TidePrediction> {
+        val dateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
+            .withZone(zoneId)
+
+        val beginDate = dateFormatter.format(Instant.ofEpochMilli(startTime))
+        val endDate = dateFormatter.format(Instant.ofEpochMilli(endTime))
+
+        val response = httpClient.get<NoaaResponse>(
+            url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter",
+            queryParams = mapOf(
+                "station" to station.id,
+                "begin_date" to beginDate,
+                "end_date" to endDate,
+                "product" to "predictions",
+                "datum" to "MLLW",
+                "units" to "english",
+                "time_zone" to "lst",
+                "format" to "json",
+                "interval" to "${interval.toMinutes()}"
+            )
+        ) { it.body() }
+
+        return response.predictions.map { prediction ->
+            TidePrediction(
+                timestamp = LocalDateTime.parse(prediction.t, noaaDateFormatter)
+                    .atZone(zoneId)
+                    .toInstant()
+                    .toEpochMilli(),
+                height = prediction.v.toDouble()
+            )
+        }
+    }
+
+    private suspend fun getNoaaExtremes(
+        station: Station,
+        startTime: Long,
+        endTime: Long
+    ): List<TideExtreme> {
+        val zoneId = getStationZoneId(station)
+        val dateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm")
+            .withZone(zoneId)
+
+        val beginDate = dateFormatter.format(Instant.ofEpochMilli(startTime))
+        val endDate = dateFormatter.format(Instant.ofEpochMilli(endTime))
+
+        return httpClient.get(
+            url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter",
+            queryParams = mapOf(
+                "station" to station.id,
+                "begin_date" to beginDate,
+                "end_date" to endDate,
+                "product" to "predictions",
+                "datum" to "MLLW",
+                "units" to "english",
+                "time_zone" to "lst",
+                "format" to "json",
+                "interval" to "hilo"
+            )
+        ) { response ->
+            response.body<NoaaResponse>().predictions.map { prediction ->
+                TideExtreme(
+                    type = if (prediction.type == "H") TideType.HIGH else TideType.LOW,
+                    timestamp = LocalDateTime.parse(prediction.t, noaaDateFormatter)
+                        .atZone(zoneId)
+                        .toInstant()
+                        .toEpochMilli(),
+                    height = prediction.v.toDouble()
+                )
+            }
+        }
     }
 }
