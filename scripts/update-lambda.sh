@@ -27,11 +27,14 @@ for function_name in "${LAMBDA_FUNCTIONS[@]}"; do
     aws lambda update-function-code \
         --function-name "$function_name" \
         --zip-file "fileb://$JAR_FILE"
+done
 
-    # Wait for the update to complete
-    echo "Waiting for function update to complete..."
+# Wait for the updates to complete
+for function_name in "${LAMBDA_FUNCTIONS[@]}"; do
+    echo "Waiting for function ${function_name} update to complete..."
     aws lambda wait function-updated \
         --function-name "$function_name"
 done
+
 
 echo "All Lambda functions updated successfully!"
