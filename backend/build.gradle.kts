@@ -78,6 +78,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.0")
 
+    // Math
+    implementation("org.apache.commons:commons-math3:3.6.1")
+
     // Testing
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5:$kotlin_version")
     testImplementation("io.ktor:ktor-client-mock:$ktor_version")

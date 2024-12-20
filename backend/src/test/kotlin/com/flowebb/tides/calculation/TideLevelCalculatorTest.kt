@@ -30,7 +30,7 @@ class TideLevelCalculatorTest {
         longitude = -122.0,
         source = StationSource.NOAA,
         capabilities = setOf(StationType.WATER_LEVEL),
-        timeZoneOffset = ZoneOffset.ofHours(-8),
+        timeZoneOffset = ZoneOffset.ofHours(0),
         stationType = "R"
     )
 
