@@ -93,6 +93,7 @@ dependencies {
 }
 
 tasks {
+
     compileKotlin {
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)
@@ -135,6 +136,7 @@ tasks {
             include(dependency("com.amazonaws:.*"))
             include(dependency("software.amazon.awssdk:.*"))
             include(dependency("org.reactivestreams:.*"))
+            include(dependency("org.apache.commons:commons-math3:.*"))
 
             // Logging dependencies
             include(dependency("io.github.microutils:kotlin-logging-jvm"))
@@ -160,6 +162,7 @@ tasks {
             exclude(dependency("io.github.microutils:.*"))
             exclude(dependency("software.amazon.awssdk:.*"))
             exclude(dependency("org.reactivestreams:.*"))
+            exclude(dependency("org.apache.commons:commons-math3:.*"))
         }
     }
 

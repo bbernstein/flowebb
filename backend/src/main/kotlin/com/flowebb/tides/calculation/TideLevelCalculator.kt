@@ -194,12 +194,12 @@ open class TideLevelCalculator(
         if (station.stationType == "S") {
             logger.debug { "Using HILO predictions for subordinate station ${station.id}" }
             // getting HiLo predictions for 24 hours before and 24 hours after the given range
-            val startTime = startTime - Duration.ofHours(24).toMillis()
-            val endTime = endTime + Duration.ofHours(24).toMillis()
+            val startTimeEarlier = startTime - Duration.ofHours(24).toMillis()
+            val endTimeLater = endTime + Duration.ofHours(24).toMillis()
 
             // Get HILO predictions and interpolate
-            getNoaaExtremes(station, startTime, endTime).let { extremes ->
-                interpolateExtremes(extremes, startTime, endTime, interval)
+            getNoaaExtremes(station, startTimeEarlier, endTimeLater).let { extremes ->
+                interpolateExtremes(extremes, startTimeEarlier, endTimeLater, interval)
             }
         } else {
             // For reference stations (R), use detailed predictions

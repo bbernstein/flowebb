@@ -21,6 +21,9 @@ fi
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 
+# show the environment variables
+echo "NEXT_PUBLIC_API_URL: $NEXT_PUBLIC_API_URL"
+
 # Build the Next.js application
 echo "Building Next.js application..."
 cd frontend
@@ -45,8 +48,15 @@ aws s3 sync out/ "s3://${FRONTEND_BUCKET_NAME}" \
 
 # Invalidate CloudFront cache
 echo "Invalidating CloudFront cache..."
-aws cloudfront create-invalidation \
+INVALIDATION_ID=$(aws cloudfront create-invalidation \
     --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
-    --paths "/*"
+    --paths "/*" \
+    --query 'Invalidation.Id' \
+    --output text)
+
+echo "Waiting for invalidation ${INVALIDATION_ID} to complete..."
+aws cloudfront wait invalidation-completed \
+    --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+    --id "${INVALIDATION_ID}"
 
 echo "Deployment complete!"
