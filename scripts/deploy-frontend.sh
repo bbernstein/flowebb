@@ -28,6 +28,11 @@ echo "NEXT_PUBLIC_API_URL: $NEXT_PUBLIC_API_URL"
 echo "Building Next.js application..."
 cd frontend
 npm ci
+
+# Add a debug step
+echo "Environment during build:"
+env | grep NEXT_PUBLIC
+
 npm run build
 
 # Sync the build output to S3
