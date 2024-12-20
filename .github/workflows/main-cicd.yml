@@ -98,7 +98,7 @@ jobs:
         env:
           FRONTEND_BUCKET_NAME: ${{ secrets.FRONTEND_BUCKET_NAME }}
           CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
-          NEXT_PUBLIC_API_URL: https://api.webapp.com
+          NEXT_PUBLIC_API_URL: https://api.flowebb.com
         run: |
           chmod +x scripts/deploy-frontend.sh
           ./scripts/deploy-frontend.sh prod
