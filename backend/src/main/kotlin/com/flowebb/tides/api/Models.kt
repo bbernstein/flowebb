@@ -31,11 +31,11 @@ data class ExtendedTideResponse(
     val latitude: Double,
     val longitude: Double,
     val stationDistance: Double,
-    @SerialName("tideType")
-    val type: TideType,
+    val tideType: TideType,  // Changed from type to tideType
     val calculationMethod: String,
     val extremes: List<TideExtreme>,
-    val predictions: List<TidePrediction>
+    val predictions: List<TidePrediction>,
+    val timeZoneOffsetSeconds: Int? = null
 ) : ApiResponse
 
 @Serializable

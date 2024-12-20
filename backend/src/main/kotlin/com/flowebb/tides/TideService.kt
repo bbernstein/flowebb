@@ -66,10 +66,11 @@ open class TideService(
             latitude = station.latitude,
             longitude = station.longitude,
             stationDistance = station.distance,
-            type = currentLevel.type,
+            tideType = currentLevel.type,
             calculationMethod = "NOAA API",
             extremes = extremes,
-            predictions = predictions
+            predictions = predictions,
+            timeZoneOffsetSeconds = station.timeZoneOffset?.totalSeconds
         )
     }
 }

@@ -8,6 +8,9 @@ import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import java.time.*
 import java.time.format.DateTimeFormatter
+import org.apache.commons.math3.analysis.interpolation.SplineInterpolator
+import org.apache.commons.math3.analysis.polynomials.PolynomialSplineFunction
+import kotlin.text.toDouble
 
 open class TideLevelCalculator(
     private val httpClient: HttpClientService = HttpClientService()
@@ -27,6 +30,7 @@ open class TideLevelCalculator(
     ): Double = withContext(Dispatchers.IO) {
         try {
             getNoaaLevel(station, timestamp)
+                .also { logger.debug { "Got NOAA level for ts: $timestamp station ${station.id}: $it" } }
         } catch (e: Exception) {
             logger.error(e) { "Failed to get NOAA level for station ${station.id}" }
             throw e
@@ -35,11 +39,12 @@ open class TideLevelCalculator(
 
     private suspend fun getNoaaLevel(station: Station, timestamp: Long): Double = withContext(Dispatchers.IO) {
         val zoneId = getStationZoneId(station)
+        val zoneOffset = zoneId.rules.getOffset(Instant.ofEpochMilli(timestamp))
         val instant = Instant.ofEpochMilli(timestamp)
         val stationTime = instant.atZone(zoneId)
 
-        val beginInstant = stationTime.minusHours(12).toInstant()
-        val endInstant = stationTime.plusHours(12).toInstant()
+        val beginInstant = stationTime.withHour(0).withMinute(0).withSecond(0).toInstant().minus(Duration.ofHours(24))
+        val endInstant = beginInstant.plus(Duration.ofDays(1)).plus(Duration.ofHours(24))
 
         val dateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm")
             .withZone(zoneId)
@@ -56,7 +61,7 @@ open class TideLevelCalculator(
             getDetailedPredictions(station, beginDate, endDate)
         }
 
-        interpolatePredictions(predictions, timestamp)
+        interpolatePredictions(predictions, timestamp, zoneOffset)
     }
 
     private suspend fun getDetailedPredictions(
@@ -105,21 +110,21 @@ open class TideLevelCalculator(
         }
     }
 
-    private fun interpolatePredictions(predictions: List<NoaaPrediction>, timestamp: Long): Double {
+    private fun interpolatePredictions(predictions: List<NoaaPrediction>, timestamp: Long, zoneOffset: ZoneOffset): Double {
         val sorted = predictions.sortedBy {
             LocalDateTime.parse(it.t, noaaDateFormatter)
-                .toInstant(ZoneOffset.UTC)
+                .toInstant(zoneOffset)
                 .toEpochMilli()
         }
 
         val idx = sorted.binarySearch {
             LocalDateTime.parse(it.t, noaaDateFormatter)
-                .toInstant(ZoneOffset.UTC)
+                .toInstant(zoneOffset)
                 .toEpochMilli()
                 .compareTo(timestamp)
         }
 
-        logger.debug { "Interpolating prediction for timestamp $timestamp idx=$idx" }
+        logger.debug { "Interpolating prediction for timestamp $timestamp in zone offset $zoneOffset idx=$idx" }
 
         return if (idx >= 0) {
             sorted[idx].v.toDouble()
@@ -132,10 +137,10 @@ open class TideLevelCalculator(
                 val after = sorted[insertionPoint]
 
                 val t1 = LocalDateTime.parse(before.t, noaaDateFormatter)
-                    .toInstant(ZoneOffset.UTC)
+                    .toInstant(zoneOffset)
                     .toEpochMilli()
                 val t2 = LocalDateTime.parse(after.t, noaaDateFormatter)
-                    .toInstant(ZoneOffset.UTC)
+                    .toInstant(zoneOffset)
                     .toEpochMilli()
                 val v1 = before.v.toDouble()
                 val v2 = after.v.toDouble()
@@ -188,6 +193,10 @@ open class TideLevelCalculator(
         // For subordinate stations (S), use HILO and interpolate
         if (station.stationType == "S") {
             logger.debug { "Using HILO predictions for subordinate station ${station.id}" }
+            // getting HiLo predictions for 24 hours before and 24 hours after the given range
+            val startTime = startTime - Duration.ofHours(24).toMillis()
+            val endTime = endTime + Duration.ofHours(24).toMillis()
+
             // Get HILO predictions and interpolate
             getNoaaExtremes(station, startTime, endTime).let { extremes ->
                 interpolateExtremes(extremes, startTime, endTime, interval)
@@ -207,37 +216,29 @@ open class TideLevelCalculator(
     ): List<TidePrediction> {
         if (extremes.isEmpty()) return emptyList()
 
+        val baseTime = extremes.first().timestamp
+        val times = extremes.map { (it.timestamp - baseTime).toDouble() / 60000 }.toDoubleArray() // Normalize to minutes and start from zero
+        val heights = extremes.map { it.height }.toDoubleArray()
+
+        val splineInterpolator = SplineInterpolator()
+        val splineFunction: PolynomialSplineFunction = splineInterpolator.interpolate(times, heights)
+
         val predictions = mutableListOf<TidePrediction>()
         var currentTime = startTime
 
-        // 6 hours in milliseconds
-        val sixHoursMs = Duration.ofHours(6).toMillis()
-
         while (currentTime <= endTime) {
-            // Find the surrounding extremes
-            val surroundingExtremes = extremes
-                .filter { it.timestamp >= currentTime - sixHoursMs }
-                .filter { it.timestamp <= currentTime + sixHoursMs }
-                .sortedBy { it.timestamp }
-                .take(2)
-
-            if (surroundingExtremes.size == 2) {
-                val before = surroundingExtremes[0]
-                val after = surroundingExtremes[1]
-
-                // Linear interpolation
-                val progress = (currentTime - before.timestamp).toDouble() /
-                        (after.timestamp - before.timestamp).toDouble()
-                val height = before.height + (after.height - before.height) * progress
-
-                predictions.add(
-                    TidePrediction(
-                        timestamp = currentTime,
-                        height = height
-                    )
-                )
+            val normalizedTime = (currentTime - baseTime).toDouble() / 60000 // Normalize to minutes and start from zero
+            val height = when {
+                normalizedTime < times.first() -> heights.first() // Use the first height if before the range
+                normalizedTime > times.last() -> heights.last() // Use the last height if after the range
+                else -> splineFunction.value(normalizedTime) // Interpolate within the range
             }
-
+            predictions.add(
+                TidePrediction(
+                    timestamp = currentTime,
+                    height = height
+                )
+            )
             currentTime += interval.toMillis()
         }
 
