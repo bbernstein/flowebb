@@ -38,8 +38,8 @@ open class TideLevelCalculator(
         val instant = Instant.ofEpochMilli(timestamp)
         val stationTime = instant.atZone(zoneId)
 
-        val beginInstant = stationTime.minusHours(12).toInstant()
-        val endInstant = stationTime.plusHours(12).toInstant()
+        val beginInstant = stationTime.withHour(0).withMinute(0).withSecond(0).toInstant()
+        val endInstant = beginInstant.plus(Duration.ofDays(1))
 
         val dateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm")
             .withZone(zoneId)

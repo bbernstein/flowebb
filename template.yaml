@@ -12,11 +12,22 @@ Globals:
     AutoPublishAlias: live
     Environment:
       Variables:
-        JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+        # Shared variables that are always set
         STATION_LIST_BUCKET: !Ref StationListBucket
-        DYNAMODB_ENDPOINT: "http://dynamodb-local:8000"
         AWS_REGION: !Ref AWS::Region
-        ALLOWED_ORIGINS: "'http://localhost:3000'"
+        # Conditional variables based on environment
+        JAVA_TOOL_OPTIONS: !If
+          - IsLocal
+          - "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+          - ""
+        DYNAMODB_ENDPOINT: !If
+          - IsLocal
+          - "http://dynamodb-local:8000"
+          - ""
+        ALLOWED_ORIGINS: !If
+          - IsLocal
+          - "'http://localhost:3000'"
+          - "'https://app.flowebb.com'"
 
   Api:
     Cors:

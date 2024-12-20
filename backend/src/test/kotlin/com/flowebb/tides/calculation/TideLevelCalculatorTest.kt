@@ -75,5 +75,6 @@ class TideLevelCalculatorTest {
             assertTrue(tideLevel.waterLevel >= 0)
             assertEquals(tideLevel.waterLevel, tideLevel.predictedLevel)
             assertNotNull(tideLevel.type)
-        }    }
+        }
+    }
 }
