@@ -21,6 +21,9 @@ fi
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 
+# show the environment variables
+echo "NEXT_PUBLIC_API_URL: $NEXT_PUBLIC_API_URL"
+
 # Build the Next.js application
 echo "Building Next.js application..."
 cd frontend
