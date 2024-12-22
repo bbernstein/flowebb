@@ -1,12 +1,8 @@
 package com.flowebb.tides.calculation
 
 import com.flowebb.http.HttpClientService
-import com.flowebb.tides.station.Station
-import com.flowebb.tides.station.StationSource
-import com.flowebb.tides.station.StationType
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import java.time.ZoneOffset
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
