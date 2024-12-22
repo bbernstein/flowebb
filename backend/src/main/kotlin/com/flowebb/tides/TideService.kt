@@ -1,7 +1,9 @@
 package com.flowebb.tides
 
 import com.flowebb.tides.api.ExtendedTideResponse
+import com.flowebb.tides.cache.TidePredictionCache
 import com.flowebb.tides.calculation.TideLevelCalculator
+import com.flowebb.tides.calculation.TidePrediction
 import com.flowebb.tides.station.Station
 import com.flowebb.tides.station.StationService
 import mu.KotlinLogging
@@ -11,7 +13,8 @@ import java.time.temporal.ChronoUnit
 
 open class TideService(
     private val stationService: StationService,
-    private val calculator: TideLevelCalculator = TideLevelCalculator()
+    private val calculator: TideLevelCalculator = TideLevelCalculator(),
+    private val cache: TidePredictionCache = TidePredictionCache()
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -44,6 +47,15 @@ open class TideService(
     private suspend fun getCurrentTideForStation(station: Station): ExtendedTideResponse {
         val currentTime = Instant.now()
         val stationZone = calculator.getStationZoneId(station)
+        val currentDate = currentTime.atZone(stationZone).toLocalDate()
+
+        // Get yesterday, today, and tomorrow's data
+        val dates = listOf(
+            currentDate.minusDays(1),
+            currentDate,
+            currentDate.plusDays(1)
+        )
+
         val startOfDay = currentTime.atZone(stationZone)
             .truncatedTo(ChronoUnit.DAYS)
             .toInstant()
@@ -51,24 +63,65 @@ open class TideService(
         val startOfDayMillis = startOfDay.toEpochMilli()
         val endOfDayMillis = endOfDay.toEpochMilli()
 
-        logger.debug { "Getting tides for station ${station.id} (type: ${station.stationType}) between $startOfDay and $endOfDay ($startOfDayMillis - $endOfDayMillis)" }
+        logger.debug { "Getting tides for station ${station.id} (type: ${station.stationType}) between $startOfDay and $endOfDay" }
 
-        val currentLevel = calculator.getCurrentTideLevel(station, currentTime.toEpochMilli())
-        val extremes = calculator.findExtremes(station, startOfDayMillis, endOfDayMillis)
-        val predictions = calculator.getPredictions(station, startOfDayMillis, endOfDayMillis, Duration.ofMinutes(6))
+        // Get three days of cached data
+        val cachedDataList = calculator.getCachedDayData(station, dates, stationZone)
+
+        // Combine all predictions and extremes
+        val allPredictions = cachedDataList.flatMap { cache.convertToPredictions(it.predictions) }
+            .sortedBy { it.timestamp }
+        val allExtremes = cachedDataList.flatMap { cache.convertToExtremes(it.extremes) }
+            .sortedBy { it.timestamp }
+
+        // Use the combined data for calculations
+        val currentLevel = if (station.stationType == "S") {
+            calculator.interpolateExtremes(allExtremes, currentTime.toEpochMilli())
+        } else {
+            calculator.interpolatePredictions(allPredictions, currentTime.toEpochMilli())
+        }
+
+        val currentType = calculator.determineTideType(currentLevel,
+            if (station.stationType == "S") {
+                calculator.interpolateExtremes(allExtremes, currentTime.toEpochMilli() - 360000)
+            } else {
+                calculator.interpolatePredictions(allPredictions, currentTime.toEpochMilli() - 360000)
+            }
+        )
+
+        // Generate predictions at 6-minute intervals
+        val predictions = mutableListOf<TidePrediction>()
+        var t = startOfDayMillis
+        while (t <= endOfDayMillis) {
+            val height = if (station.stationType == "S") {
+                calculator.interpolateExtremes(allExtremes, t)
+            } else {
+                calculator.interpolatePredictions(allPredictions, t)
+            }
+            predictions.add(TidePrediction(t, height))
+            t += Duration.ofMinutes(6).toMillis()
+        }
+
+        // Get today's extremes only
+        val todayExtremes = allExtremes.filter { extreme ->
+            val extremeTime = Instant.ofEpochMilli(extreme.timestamp)
+                .atZone(stationZone)
+                .toLocalDate()
+            extremeTime == currentDate
+        }
 
         return ExtendedTideResponse(
             timestamp = currentTime.toEpochMilli(),
-            waterLevel = currentLevel.waterLevel,
-            predictedLevel = currentLevel.predictedLevel,
+            waterLevel = currentLevel,
+            predictedLevel = currentLevel,
             nearestStation = station.id,
             location = station.name,
             latitude = station.latitude,
             longitude = station.longitude,
             stationDistance = station.distance,
-            tideType = currentLevel.type,
+            tideType = currentType,
             calculationMethod = "NOAA API",
-            extremes = extremes,
+            extremes = todayExtremes,
             predictions = predictions,
             timeZoneOffsetSeconds = station.timeZoneOffset?.totalSeconds
         )

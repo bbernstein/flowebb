@@ -16,10 +16,6 @@ Globals:
         STATION_LIST_BUCKET: !Ref StationListBucket
         AWS_REGION: !Ref AWS::Region
         # Conditional variables based on environment
-        JAVA_TOOL_OPTIONS: !If
-          - IsLocal
-          - "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
-          - ""
         DYNAMODB_ENDPOINT: !If
           - IsLocal
           - "http://dynamodb-local:8000"

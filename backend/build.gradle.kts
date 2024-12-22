@@ -87,6 +87,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter:5.8.1")
     testImplementation("io.mockk:mockk:1.13.8")
     testImplementation("io.mockk:mockk-agent-jvm:1.13.8")
+
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutines_version") {
         exclude("org.jetbrains.kotlinx", "kotlinx-coroutines-core")
     }

@@ -96,6 +96,7 @@ class TidePredictionCache {
         return (now - cache.lastUpdated) < cacheValidityPeriod
     }
 
+    // Make it explicitly public
     fun convertToPredictions(cached: List<CachedPrediction>): List<TidePrediction> {
         return cached.map {
             TidePrediction(

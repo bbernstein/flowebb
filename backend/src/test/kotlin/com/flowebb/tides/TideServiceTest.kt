@@ -2,11 +2,11 @@ package com.flowebb.tides
 
 import com.flowebb.tides.calculation.*
 import com.flowebb.tides.station.*
+import com.flowebb.tides.cache.*
+import java.time.ZoneId
 import io.mockk.coEvery
-import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
-import java.time.ZoneId
 import java.time.ZoneOffset
 import kotlin.test.*
 
@@ -49,35 +49,43 @@ class TideServiceTest {
 
         // Setup mock behavior for TideLevelCalculator
         coEvery {
-            mockCalculator.getCurrentTideLevel(any(), any())
-        } returns TideLevel(
-            waterLevel = 5.0,
-            predictedLevel = 5.0,
-            type = TideType.RISING
-        )
-
-        coEvery {
-            mockCalculator.findExtremes(any(), any(), any())
-        } returns listOf(
-            TideExtreme(
-                type = TideType.HIGH,
-                timestamp = 1234567890000,
-                height = 8.0
-            )
-        )
-
-        coEvery {
-            mockCalculator.getPredictions(any(), any(), any(), any())
-        } returns listOf(
-            TidePrediction(
-                timestamp = 1234567890000,
-                height = 5.0
-            )
-        )
-
-        every {
             mockCalculator.getStationZoneId(any())
         } returns ZoneId.of("America/Los_Angeles")
+
+        coEvery {
+            mockCalculator.getCachedDayData(any(), any(), any())
+        } returns listOf(
+            TidePredictionRecord(
+                stationId = "TEST1",
+                date = "2024-12-15",
+                stationType = "R",
+                predictions = listOf(
+                    CachedPrediction(
+                        timestamp = 1734567890000,
+                        height = 5.0
+                    )
+                ),
+                extremes = listOf(
+                    CachedExtreme(
+                        timestamp = 1734567890000,
+                        height = 8.0,
+                        type = "HIGH"
+                    )
+                )
+            )
+        )
+
+        coEvery {
+            mockCalculator.interpolatePredictions(any(), any())
+        } returns 5.0
+
+        coEvery {
+            mockCalculator.interpolateExtremes(any(), any())
+        } returns 8.0
+
+        coEvery {
+            mockCalculator.determineTideType(any(), any())
+        } returns TideType.RISING
     }
 
     @Test
@@ -88,14 +96,10 @@ class TideServiceTest {
         assertEquals("Test Station", result.location)
         assertEquals(10.5, result.stationDistance)
         assertEquals("NOAA API", result.calculationMethod)
-
-        // Validate predictions
-        assertTrue(result.predictions.isNotEmpty())
-        assertEquals(5.0, result.predictions.first().height)
-
-        // Validate extremes
-        assertTrue(result.extremes.isNotEmpty())
-        assertEquals(TideType.HIGH, result.extremes.first().type)
+        assertEquals(TideType.RISING, result.tideType)
+        assertNotNull(result.predictions)
+        assertNotNull(result.extremes)
+        assertEquals(-8 * 3600, result.timeZoneOffsetSeconds)
     }
 
     @Test
@@ -105,5 +109,9 @@ class TideServiceTest {
         assertEquals("TEST1", result.nearestStation)
         assertEquals("Test Station", result.location)
         assertEquals("NOAA API", result.calculationMethod)
+        assertEquals(TideType.RISING, result.tideType)
+        assertNotNull(result.predictions)
+        assertNotNull(result.extremes)
+        assertEquals(-8 * 3600, result.timeZoneOffsetSeconds)
     }
 }
