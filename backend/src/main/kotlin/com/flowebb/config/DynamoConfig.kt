@@ -7,62 +7,89 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import java.net.URI
-import org.slf4j.LoggerFactory
+import mu.KotlinLogging
 
 object DynamoConfig {
-    private var _enhancedClient: DynamoDbEnhancedClient? = null
-    private var isTestEnvironment = false
-    private val logger = LoggerFactory.getLogger(DynamoConfig::class.java)
+    private val logger = KotlinLogging.logger {}
 
+    // Environment detection
+    private val isTestEnvironment: Boolean
+        get() = System.getProperty("test.environment") == "true"
+
+    private val isLocalDevelopment: Boolean
+        get() = System.getenv("AWS_SAM_LOCAL") == "true" ||
+                (!System.getenv("DYNAMODB_ENDPOINT").isNullOrBlank())
+
+    // Private variables for client management
+    private var testClient: DynamoDbEnhancedClient? = null
+    private val productionClient by lazy { createProductionClient() }
+
+    // Public access to the client
     val enhancedClient: DynamoDbEnhancedClient
-        get() = _enhancedClient ?: createClient()
+        get() = when {
+            isTestEnvironment -> testClient ?: throw IllegalStateException(
+                "Test client not set. Call setTestClient() first in test environment."
+            )
+            isLocalDevelopment -> createLocalClient()
+            else -> productionClient
+        }
 
-    // Add these methods for testing
+    // Testing support
     fun setTestClient(client: DynamoDbEnhancedClient) {
-        _enhancedClient = client
-        isTestEnvironment = true
+        if (!isTestEnvironment) {
+            throw IllegalStateException("Cannot set test client in non-test environment")
+        }
+        testClient = client
+        logger.debug("Test client has been set")
     }
 
     fun resetTestClient() {
-        _enhancedClient = null
-        isTestEnvironment = false
+        if (!isTestEnvironment) {
+            throw IllegalStateException("Cannot reset test client in non-test environment")
+        }
+        testClient = null
+        logger.debug("Test client has been reset")
     }
 
-    private fun createClient(): DynamoDbEnhancedClient {
-        logger.debug("Creating DynamoDB client. isTestEnvironment: $isTestEnvironment")
-        if (isTestEnvironment) {
-            throw IllegalStateException("Test client not set. Call setTestClient() first in test environment.")
-        }
+    private fun createLocalClient(): DynamoDbEnhancedClient {
+        val endpoint = System.getenv("DYNAMODB_ENDPOINT")?.takeIf { it.isNotBlank() }
+            ?: "http://dynamodb-local:8000"
+        val region = System.getenv("AWS_REGION") ?: "us-west-2"
+        val accessKeyId = System.getenv("AWS_ACCESS_KEY_ID") ?: "local"
+        val secretKey = System.getenv("AWS_SECRET_ACCESS_KEY") ?: "local"
 
-        val isLocalDevelopment = System.getenv("AWS_SAM_LOCAL") == "true"
+        logger.debug("Initializing local DynamoDB client:")
+        logger.debug("  Endpoint: $endpoint")
+        logger.debug("  Region: $region")
+        logger.debug("  Using local credentials")
 
-        return if (isLocalDevelopment) {
-            // Local DynamoDB configuration
-            DynamoDbEnhancedClient.builder()
-                .dynamoDbClient(
-                    DynamoDbClient.builder()
-                        .httpClient(UrlConnectionHttpClient.builder().build())
-                        .endpointOverride(URI("http://dynamodb-local:8000"))
-                        .region(Region.of(System.getenv("AWS_REGION") ?: "us-west-2"))
-                        .credentialsProvider(
-                            StaticCredentialsProvider.create(
-                                AwsBasicCredentials.create("local", "local")
-                            )
+        return DynamoDbEnhancedClient.builder()
+            .dynamoDbClient(
+                DynamoDbClient.builder()
+                    .httpClient(UrlConnectionHttpClient.builder().build())
+                    .endpointOverride(URI(endpoint))
+                    .region(Region.of(region))
+                    .credentialsProvider(
+                        StaticCredentialsProvider.create(
+                            AwsBasicCredentials.create(accessKeyId, secretKey)
                         )
-                        .build()
-                )
-                .build()
-                .also { _enhancedClient = it }
-        } else {
-            // Production AWS configuration
-            DynamoDbEnhancedClient.builder()
-                .dynamoDbClient(
-                    DynamoDbClient.builder()
-                        .httpClient(UrlConnectionHttpClient.builder().build())
-                        .build()
-                )
-                .build()
-                .also { _enhancedClient = it }
-        }
+                    )
+                    .build()
+            )
+            .build()
+            .also { logger.debug("Successfully created local DynamoDB client") }
+    }
+
+    private fun createProductionClient(): DynamoDbEnhancedClient {
+        logger.debug("Initializing production DynamoDB client")
+
+        return DynamoDbEnhancedClient.builder()
+            .dynamoDbClient(
+                DynamoDbClient.builder()
+                    .httpClient(UrlConnectionHttpClient.builder().build())
+                    .build()
+            )
+            .build()
+            .also { logger.debug("Successfully created production DynamoDB client") }
     }
 }

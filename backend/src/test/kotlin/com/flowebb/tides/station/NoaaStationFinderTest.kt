@@ -6,34 +6,32 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import kotlin.test.*
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient
 import software.amazon.awssdk.services.s3.S3Client
 import io.mockk.mockk
 import io.mockk.coEvery
 import com.flowebb.config.DynamoConfig
 import com.flowebb.http.HttpClientService
+import com.flowebb.tides.DynamoTestBase
 import com.flowebb.tides.station.cache.StationListCache
 import java.time.ZoneOffset
 
-class NoaaStationFinderTest {
-    private lateinit var mockHttpClient: HttpClientService
-    private lateinit var mockDynamoClient: DynamoDbEnhancedClient
+class NoaaStationFinderTest : DynamoTestBase() {
     private lateinit var mockS3Client: S3Client
+    private lateinit var mockHttpClient: HttpClientService
     private lateinit var finder: NoaaStationFinder
 
     @BeforeEach
     fun setup() {
-        mockDynamoClient = mockk(relaxed = true)
         mockS3Client = mockk(relaxed = true)
         mockHttpClient = mockk()
-
-        DynamoConfig.setTestClient(mockDynamoClient)
 
         // Create StationListCache with mock S3 client
         val stationListCache = StationListCache(
             isLocalDevelopment = true,
             s3Client = mockS3Client
         )
+
+        DynamoConfig.setTestClient(mockDynamoClient)
 
         // Mock HTTP client responses
         coEvery {
