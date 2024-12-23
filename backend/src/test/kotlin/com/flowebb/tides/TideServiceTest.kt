@@ -5,12 +5,13 @@ import com.flowebb.tides.station.*
 import com.flowebb.tides.cache.*
 import java.time.ZoneId
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import java.time.ZoneOffset
 import kotlin.test.*
 
-class TideServiceTest {
+class TideServiceTest : DynamoTestBase() {
     private val mockStation = Station(
         id = "TEST1",
         name = "Test Station",
@@ -27,11 +28,12 @@ class TideServiceTest {
 
     private val mockStationService = mockk<StationService>()
     private val mockCalculator = mockk<TideLevelCalculator>()
+    private val mockCache = mockk<TidePredictionCache>()
     private lateinit var service: TideService
 
     @BeforeTest
     fun setup() {
-        service = TideService(mockStationService, mockCalculator)
+        service = TideService(mockStationService, mockCalculator, mockCache)
 
         // Setup mock behavior for StationService
         coEvery {
@@ -86,6 +88,26 @@ class TideServiceTest {
         coEvery {
             mockCalculator.determineTideType(any(), any())
         } returns TideType.RISING
+
+        // Setup mock behavior for TidePredictionCache
+        every {
+            mockCache.convertToPredictions(any())
+        } returns listOf(
+            TidePrediction(
+                timestamp = 1734567890000,
+                height = 5.0
+            )
+        )
+
+        every {
+            mockCache.convertToExtremes(any())
+        } returns listOf(
+            TideExtreme(
+                type = TideType.HIGH,
+                timestamp = 1734567890000,
+                height = 8.0
+            )
+        )
     }
 
     @Test

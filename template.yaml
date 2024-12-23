@@ -5,17 +5,18 @@ Description: Tides API SAM Application
 Globals:
   Function:
     Timeout: 120
-    MemorySize: 512
+    MemorySize: 1024  # Increased memory for faster startup
     Runtime: java11
     Architectures:
-      - arm64
+      - arm64  # ARM is generally more cost-effective and has better cold start times
     AutoPublishAlias: live
+    SnapStart:
+      ApplyOn: PublishedVersions  # Enable SnapStart
     Environment:
       Variables:
-        # Shared variables that are always set
         STATION_LIST_BUCKET: !Ref StationListBucket
         AWS_REGION: !Ref AWS::Region
-        # Conditional variables based on environment
+        JAVA_TOOL_OPTIONS: "-XX:+TieredCompilation -XX:TieredStopAtLevel=1"
         DYNAMODB_ENDPOINT: !If
           - IsLocal
           - "http://dynamodb-local:8000"
@@ -80,3 +81,8 @@ Resources:
         - S3WritePolicy:
             BucketName: !Ref StationListBucket
 
+Conditions:
+  IsLocal:
+    Fn::Equals:
+      - !Ref AWS::Region
+      - local

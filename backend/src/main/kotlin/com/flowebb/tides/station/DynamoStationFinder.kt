@@ -33,12 +33,14 @@ data class StationCacheItem(
     constructor() : this(stationId = "")
 }
 
-class DynamoStationFinder : StationFinder {
+class DynamoStationFinder(
+    enhancedClient: DynamoDbEnhancedClient = DynamoConfig.enhancedClient
+) : StationFinder {
     private val logger = KotlinLogging.logger {}
     private val noaaFinder = NoaaStationFinder()
     private val cacheValidityPeriod = 7.days.inWholeMilliseconds
 
-    private val stationsTable = DynamoConfig.enhancedClient.table(
+    private val stationsTable = enhancedClient.table(
         "stations-cache",
         TableSchema.fromBean(StationCacheItem::class.java)
     )
@@ -83,11 +85,9 @@ class DynamoStationFinder : StationFinder {
             limit
         ).also {
             // Cache the individual stations for future lookups
-            logger.debug { "Caching ${it.size} stations" }
             it.forEach { station ->
                 stationsTable.putItem(station.toCacheItem())
             }
-            logger.debug { "Cached ${it.size} stations from nearest stations search" }
         }
     }
 

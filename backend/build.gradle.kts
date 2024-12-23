@@ -100,6 +100,11 @@ tasks {
             jvmTarget.set(JvmTarget.JVM_11)
             apiVersion.set(KotlinVersion.KOTLIN_1_9)
             languageVersion.set(KotlinVersion.KOTLIN_1_9)
+            freeCompilerArgs.addAll(
+                "-Xjvm-default=all",
+                "-opt-in=kotlin.RequiresOptIn",
+                "-Xjsr305=strict"
+            )
         }
     }
 
@@ -148,6 +153,8 @@ tasks {
             include(dependency("io.ktor:.*"))
         }
 
+        // Enable ZIP compression
+        isZip64 = true
         mergeServiceFiles()
 
         minimize {

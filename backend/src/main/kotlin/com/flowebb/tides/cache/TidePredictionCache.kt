@@ -5,6 +5,7 @@ import com.flowebb.tides.calculation.TideExtreme
 import com.flowebb.tides.calculation.TidePrediction
 import com.flowebb.tides.calculation.TideType
 import mu.KotlinLogging
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient
 import software.amazon.awssdk.enhanced.dynamodb.Key
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema
 import java.time.Instant
@@ -12,12 +13,14 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.time.Duration.Companion.days
 
-class TidePredictionCache {
+class TidePredictionCache(
+    enhancedClient: DynamoDbEnhancedClient = DynamoConfig.enhancedClient
+) {
     private val logger = KotlinLogging.logger {}
     private val cacheValidityPeriod = 7.days.inWholeMilliseconds
     private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
-    private val predictionsTable = DynamoConfig.enhancedClient.table(
+    private val predictionsTable = enhancedClient.table(
         "tide-predictions-cache",
         TableSchema.fromBean(TidePredictionRecord::class.java)
     )

@@ -1,12 +1,14 @@
 package com.flowebb.tides.station
 
+import com.flowebb.tides.DynamoTestBase
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.BeforeEach
 import java.time.ZoneOffset
 import kotlin.test.*
 
-class StationServiceTest {
+class StationServiceTest : DynamoTestBase() {
     private val mockStation = Station(
         id = "TEST1",
         name = "Test Station",
@@ -23,6 +25,17 @@ class StationServiceTest {
 
     private val noaaFinder = mockk<StationFinder>()
     private val backupFinder = mockk<StationFinder>()
+    private lateinit var service: StationService
+
+    @BeforeEach
+    fun setup() {
+        service = StationService(
+            mapOf(
+                StationSource.NOAA to noaaFinder,
+                StationSource.UKHO to backupFinder
+            )
+        )
+    }
 
     @Test
     fun `findNearestStations tries all sources when preferred source fails`() = runBlocking {

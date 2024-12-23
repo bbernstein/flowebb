@@ -1,6 +1,7 @@
 package com.flowebb.tides.calculation
 
 import com.flowebb.http.HttpClientService
+import com.flowebb.tides.cache.TidePredictionCache
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlin.test.Test
@@ -9,7 +10,8 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalCoroutinesApi::class)
 class TideLevelCalculatorTest {
     private val mockHttpClient = mockk<HttpClientService>()
-    private val calculator = TideLevelCalculator(mockHttpClient)
+    private val mockPredictionCache = mockk<TidePredictionCache>(relaxed = true)
+    private val calculator = TideLevelCalculator(mockHttpClient, mockPredictionCache)
 
     @Test
     fun `determineTideType correctly identifies rising tide`() {
