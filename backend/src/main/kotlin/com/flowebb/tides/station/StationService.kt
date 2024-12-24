@@ -1,5 +1,8 @@
 package com.flowebb.tides.station
 
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import mu.KotlinLogging
 
 open class StationService(
@@ -7,21 +10,28 @@ open class StationService(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    open suspend fun getStation(stationId: String): Station {
+    open suspend fun getStation(stationId: String): Station = coroutineScope {
         logger.debug { "Looking up station: $stationId" }
 
-        for ((source, finder) in finders) {
-            try {
-                logger.debug { "Attempting to find station with $source finder" }
-                return finder.findStation(stationId)
-                    .also { logger.debug { "Found station: $it" } }
-            } catch (e: Exception) {
-                logger.error(e) { "Failed to find station with $source finder" }
-                // Log the full stack trace
-                logger.debug { "Stack trace: $e" }
+        // Create async tasks for all finders
+        val results = finders.map { (source, finder) ->
+            async {
+                try {
+                    logger.debug { "Attempting to find station with $source finder" }
+                    Result.success(finder.findStation(stationId))
+                } catch (e: Exception) {
+                    logger.error(e) { "Failed to find station with $source finder" }
+                    logger.debug { "Stack trace: $e" }
+                    Result.failure(e)
+                }
             }
         }
-        throw Exception("Station not found: $stationId")
+
+        // Wait for first successful result or all failures
+        results.awaitAll()
+            .firstOrNull { it.isSuccess }
+            ?.getOrNull()
+            ?: throw Exception("Station not found: $stationId")
     }
 
     open suspend fun findNearestStations(
@@ -29,7 +39,7 @@ open class StationService(
         longitude: Double,
         limit: Int = 5,
         preferredSource: StationSource? = null
-    ): List<Station> {
+    ): List<Station> = coroutineScope {
         logger.debug {
             "Finding nearest stations: lat=$latitude, lon=$longitude, limit=$limit, " +
                     "preferred=$preferredSource"
@@ -40,7 +50,7 @@ open class StationService(
             finders[preferredSource]?.let { finder ->
                 try {
                     logger.debug { "Attempting to find stations with preferred source: $preferredSource" }
-                    return finder.findNearestStations(
+                    return@coroutineScope finder.findNearestStations(
                         latitude,
                         longitude,
                         limit
@@ -51,21 +61,29 @@ open class StationService(
             }
         }
 
-        // Try all available sources and return the first success
-        for ((source, finder) in finders) {
-            try {
-                logger.debug { "Attempting to find stations with source: $source" }
-                return finder.findNearestStations(
-                    latitude,
-                    longitude,
-                    limit
-                )
-            } catch (e: Exception) {
-                logger.warn(e) { "Failed to find stations with $source finder" }
-                continue
+        // Try all available sources in parallel
+        val results = finders.map { (source, finder) ->
+            async {
+                try {
+                    logger.debug { "Attempting to find stations with source: $source" }
+                    Result.success(
+                        finder.findNearestStations(
+                            latitude,
+                            longitude,
+                            limit
+                        )
+                    )
+                } catch (e: Exception) {
+                    logger.warn(e) { "Failed to find stations with $source finder" }
+                    Result.failure(e)
+                }
             }
         }
 
-        throw Exception("No stations found in any available source")
+        // Return first successful result or throw if all fail
+        results.awaitAll()
+            .firstOrNull { it.isSuccess }
+            ?.getOrNull()
+            ?: throw Exception("No stations found in any available source")
     }
 }

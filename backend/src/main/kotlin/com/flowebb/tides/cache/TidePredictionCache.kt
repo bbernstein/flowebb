@@ -4,6 +4,9 @@ import com.flowebb.config.DynamoConfig
 import com.flowebb.tides.calculation.TideExtreme
 import com.flowebb.tides.calculation.TidePrediction
 import com.flowebb.tides.calculation.TideType
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import mu.KotlinLogging
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient
 import software.amazon.awssdk.enhanced.dynamodb.Key
@@ -53,45 +56,29 @@ class TidePredictionCache(
         }
     }
 
-    fun savePredictions(
-        stationId: String,
-        date: LocalDate,
-        predictions: List<TidePrediction>,
-        extremes: List<TideExtreme>,
-        stationType: String
-    ) {
-        val dateStr = date.format(dateFormatter)
-        logger.debug { "Saving predictions to cache for station $stationId on $dateStr" }
+    suspend fun savePredictionsBatch(
+        items: List<TidePredictionRecord>
+    ) = coroutineScope {
+        logger.debug { "Saving batch of ${items.size} predictions to cache" }
 
-        val now = Instant.now().toEpochMilli()
-        val cacheItem = TidePredictionRecord(
-            stationId = stationId,
-            date = dateStr,
-            stationType = stationType,
-            predictions = predictions.map {
-                CachedPrediction(
-                    timestamp = it.timestamp,
-                    height = it.height
-                )
-            },
-            extremes = extremes.map {
-                CachedExtreme(
-                    timestamp = it.timestamp,
-                    height = it.height,
-                    type = it.type.toString()
-                )
-            },
-            lastUpdated = now,
-            ttl = now + cacheValidityPeriod
-        )
-
-        try {
-            predictionsTable.putItem(cacheItem)
-            logger.debug { "Successfully cached predictions for station $stationId on $dateStr" }
-        } catch (e: Exception) {
-            logger.error(e) { "Error saving predictions to cache" }
-            throw e
+        // Process items in parallel chunks to avoid overwhelming DynamoDB
+        val chunkSize = 25
+        val results = items.chunked(chunkSize).map { chunk ->
+            async {
+                chunk.forEach { item ->
+                    try {
+                        predictionsTable.putItem(item)
+                        logger.debug { "Successfully cached predictions for station ${item.stationId} on ${item.date}" }
+                    } catch (e: Exception) {
+                        logger.error(e) { "Error saving predictions to cache for station ${item.stationId} on ${item.date}" }
+                        throw e
+                    }
+                }
+            }
         }
+
+        // Wait for all chunks to complete
+        results.awaitAll()
     }
 
     private fun isCacheValid(cache: TidePredictionRecord): Boolean {
@@ -99,7 +86,6 @@ class TidePredictionCache(
         return (now - cache.lastUpdated) < cacheValidityPeriod
     }
 
-    // Make it explicitly public
     fun convertToPredictions(cached: List<CachedPrediction>): List<TidePrediction> {
         return cached.map {
             TidePrediction(
