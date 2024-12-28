@@ -5,6 +5,9 @@ import com.flowebb.tides.cache.TidePredictionCache
 import com.flowebb.tides.cache.TidePredictionRecord
 import com.flowebb.tides.station.Station
 import io.ktor.client.call.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import org.apache.commons.math3.analysis.interpolation.SplineInterpolator
 import org.apache.commons.math3.analysis.polynomials.PolynomialSplineFunction
 import java.time.*
@@ -26,21 +29,23 @@ class TideLevelCalculator(
         station: Station,
         dates: List<LocalDate>,
         zoneId: ZoneId
-    ): List<TidePredictionRecord> {
-        return dates.map { date ->
-            cache.getPredictions(station.id, date) ?: run {
-                // If not in cache, fetch from NOAA
-                if (station.stationType == "S") {
-                    val extremes = fetchNoaaExtremes(station, date, zoneId)
-                    cache.savePredictions(station.id, date, emptyList(), extremes, "S")
-                } else {
-                    val predictions = fetchNoaaPredictions(station, date, zoneId)
-                    val extremes = fetchNoaaExtremes(station, date, zoneId)
-                    cache.savePredictions(station.id, date, predictions, extremes, "R")
+    ): List<TidePredictionRecord> = coroutineScope {
+        dates.map { date ->
+            async {
+                cache.getPredictions(station.id, date) ?: run {
+                    // If not in cache, fetch from NOAA
+                    if (station.stationType == "S") {
+                        val extremes = fetchNoaaExtremes(station, date, zoneId)
+                        cache.savePredictions(station.id, date, emptyList(), extremes, "S")
+                    } else {
+                        val predictions = fetchNoaaPredictions(station, date, zoneId)
+                        val extremes = fetchNoaaExtremes(station, date, zoneId)
+                        cache.savePredictions(station.id, date, predictions, extremes, "R")
+                    }
+                    cache.getPredictions(station.id, date)!!
                 }
-                cache.getPredictions(station.id, date)!!
             }
-        }
+        }.awaitAll()
     }
 
     internal fun interpolateExtremes(
@@ -79,7 +84,7 @@ class TideLevelCalculator(
         } else {
             val insertionPoint = -(idx + 1)
             if (insertionPoint == 0 || insertionPoint >= sorted.size) {
-                throw IllegalStateException("No predictions available for the requested time")
+                throw IllegalStateException("No predictions available for the requested time ${timestamp}")
             } else {
                 val before = sorted[insertionPoint - 1]
                 val after = sorted[insertionPoint]
@@ -88,15 +93,6 @@ class TideLevelCalculator(
                 val ratio = (timestamp - before.timestamp).toDouble() / (after.timestamp - before.timestamp)
                 before.height + (after.height - before.height) * ratio
             }
-        }
-    }
-
-    fun determineTideType(currentLevel: Double, previousLevel: Double): TideType {
-        return when {
-            currentLevel > previousLevel + 0.1 -> TideType.RISING
-            currentLevel < previousLevel - 0.1 -> TideType.FALLING
-            currentLevel > 6.0 -> TideType.HIGH
-            else -> TideType.LOW
         }
     }
 

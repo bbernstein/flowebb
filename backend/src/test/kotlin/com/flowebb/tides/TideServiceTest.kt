@@ -85,10 +85,6 @@ class TideServiceTest : DynamoTestBase() {
             mockCalculator.interpolateExtremes(any(), any())
         } returns 8.0
 
-        coEvery {
-            mockCalculator.determineTideType(any(), any())
-        } returns TideType.RISING
-
         // Setup mock behavior for TidePredictionCache
         every {
             mockCache.convertToPredictions(any())
@@ -112,13 +108,12 @@ class TideServiceTest : DynamoTestBase() {
 
     @Test
     fun `getCurrentTide returns valid ExtendedTideResponse`() = runBlocking {
-        val result = service.getCurrentTide(47.0, -122.0)
+        val result = service.getCurrentTide(47.0, -122.0, null, null)
 
         assertEquals("TEST1", result.nearestStation)
         assertEquals("Test Station", result.location)
         assertEquals(10.5, result.stationDistance)
         assertEquals("NOAA API", result.calculationMethod)
-        assertEquals(TideType.RISING, result.tideType)
         assertNotNull(result.predictions)
         assertNotNull(result.extremes)
         assertEquals(-8 * 3600, result.timeZoneOffsetSeconds)
@@ -126,12 +121,11 @@ class TideServiceTest : DynamoTestBase() {
 
     @Test
     fun `getCurrentTideForStation returns valid ExtendedTideResponse`() = runBlocking {
-        val result = service.getCurrentTideForStation("TEST1")
+        val result = service.getCurrentTideForStation("TEST1", null, null)
 
         assertEquals("TEST1", result.nearestStation)
         assertEquals("Test Station", result.location)
         assertEquals("NOAA API", result.calculationMethod)
-        assertEquals(TideType.RISING, result.tideType)
         assertNotNull(result.predictions)
         assertNotNull(result.extremes)
         assertEquals(-8 * 3600, result.timeZoneOffsetSeconds)
