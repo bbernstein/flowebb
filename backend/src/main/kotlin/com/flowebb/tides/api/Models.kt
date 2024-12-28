@@ -24,14 +24,14 @@ data class StationsResponse(
 data class ExtendedTideResponse(
     override val responseType: String = "tide",
     val timestamp: Long,
-    val waterLevel: Double,
-    val predictedLevel: Double,
+    val waterLevel: Double?,
+    val predictedLevel: Double?,
     val nearestStation: String,
     val location: String?,
     val latitude: Double,
     val longitude: Double,
     val stationDistance: Double,
-    val tideType: TideType,  // Changed from type to tideType
+    val tideType: TideType?,  // Changed from type to tideType
     val calculationMethod: String,
     val extremes: List<TideExtreme>,
     val predictions: List<TidePrediction>,

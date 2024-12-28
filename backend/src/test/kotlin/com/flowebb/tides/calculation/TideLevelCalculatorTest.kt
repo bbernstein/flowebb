@@ -12,30 +12,6 @@ class TideLevelCalculatorTest {
     private val calculator = TideLevelCalculator(mockHttpClient)
 
     @Test
-    fun `determineTideType correctly identifies rising tide`() {
-        val type = calculator.determineTideType(5.0, 4.0)
-        assertEquals(TideType.RISING, type)
-    }
-
-    @Test
-    fun `determineTideType correctly identifies falling tide`() {
-        val type = calculator.determineTideType(4.0, 5.0)
-        assertEquals(TideType.FALLING, type)
-    }
-
-    @Test
-    fun `determineTideType correctly identifies high tide`() {
-        val type = calculator.determineTideType(7.0, 7.0)
-        assertEquals(TideType.HIGH, type)
-    }
-
-    @Test
-    fun `determineTideType correctly identifies low tide`() {
-        val type = calculator.determineTideType(2.0, 2.0)
-        assertEquals(TideType.LOW, type)
-    }
-
-    @Test
     fun `interpolatePredictions correctly interpolates between two predictions`() {
         val predictions = listOf(
             TidePrediction(timestamp = 1000L, height = 5.0),

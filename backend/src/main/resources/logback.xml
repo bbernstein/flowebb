@@ -12,11 +12,11 @@
     <logger name="com.flowebb.tides.station.DynamoStationFinder" level="DEBUG"/>
     <logger name="com.flowebb.tides.station.NoaaStationFinder" level="DEBUG"/>
     <logger name="com.flowebb.tides.station.StationService" level="DEBUG"/>
-    <logger name="software.amazon.awssdk" level="INFO"/>
-    <logger name="io.ktor.client.HttpClient" level="DEBUG"/>
-    <logger name="io.ktor.client.engine" level="DEBUG"/>
     <logger name="com.flowebb.tides.station.TideLevelCalculator" level="DEBUG"/>
-    <logger name="io.ktor.client" level="DEBUG" additivity="false">
+    <logger name="software.amazon.awssdk" level="INFO"/>
+    <logger name="io.ktor.client.HttpClient" level="WARN"/>
+    <logger name="io.ktor.client.engine" level="INFO"/>
+    <logger name="io.ktor.client" level="INFO" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
 </configuration>

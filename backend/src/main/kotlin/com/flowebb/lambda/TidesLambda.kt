@@ -23,18 +23,20 @@ class TidesLambda : BaseHandler() {
         input: APIGatewayProxyRequestEvent,
         context: Context
     ): APIGatewayProxyResponseEvent {
-        val params = input.queryStringParameters ?: mapOf()
+        val queryParams = input.queryStringParameters ?: mapOf()
 
         return try {
             val tideInfo = when {
-                params["stationId"] != null -> {
+                queryParams["stationId"] != null -> {
                     tideService.getCurrentTideForStation(
-                        params["stationId"]!!
+                        queryParams["stationId"]!!,
+                        queryParams["startDateTime"],
+                        queryParams["endDateTime"]
                     )
                 }
-                params["lat"] != null && params["lon"] != null -> {
-                    val lat = params["lat"]!!.toDouble()
-                    val lon = params["lon"]!!.toDouble()
+                queryParams["lat"] != null && queryParams["lon"] != null -> {
+                    val lat = queryParams["lat"]!!.toDouble()
+                    val lon = queryParams["lon"]!!.toDouble()
 
                     if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
                         return error("Invalid coordinates")
@@ -42,7 +44,9 @@ class TidesLambda : BaseHandler() {
 
                     tideService.getCurrentTide(
                         lat,
-                        lon
+                        lon,
+                        queryParams["startDateTime"],
+                        queryParams["endDateTime"]
                     )
                 }
                 else -> return error("Missing required parameters")
