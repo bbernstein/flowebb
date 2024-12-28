@@ -56,9 +56,16 @@ class TidePredictionCache(
         }
     }
 
-    suspend fun savePredictionsBatch(
-        items: List<TidePredictionRecord>
-    ) = coroutineScope {
+    suspend fun savePredictions(item: TidePredictionRecord) = coroutineScope {
+        try {
+            predictionsTable.putItem(item)
+            logger.debug { "Successfully cached predictions for station ${item.stationId} on ${item.date}" }
+        } catch (e: Exception) {
+            logger.error(e) { "Error saving predictions to cache for station ${item.stationId} on ${item.date}" }
+            throw e
+        }
+    }
+    suspend fun savePredictionsBatch(items: List<TidePredictionRecord>) = coroutineScope {
         logger.debug { "Saving batch of ${items.size} predictions to cache" }
 
         // Process items in parallel chunks to avoid overwhelming DynamoDB
@@ -67,8 +74,7 @@ class TidePredictionCache(
             async {
                 chunk.forEach { item ->
                     try {
-                        predictionsTable.putItem(item)
-                        logger.debug { "Successfully cached predictions for station ${item.stationId} on ${item.date}" }
+                        savePredictions(item)
                     } catch (e: Exception) {
                         logger.error(e) { "Error saving predictions to cache for station ${item.stationId} on ${item.date}" }
                         throw e
