@@ -1,6 +1,8 @@
 package com.flowebb.tides.calculation
 
 import com.flowebb.http.HttpClientService
+import com.flowebb.tides.cache.CachedExtreme
+import com.flowebb.tides.cache.CachedPrediction
 import com.flowebb.tides.cache.TidePredictionCache
 import com.flowebb.tides.cache.TidePredictionRecord
 import com.flowebb.tides.station.Station
@@ -30,22 +32,64 @@ class TideLevelCalculator(
         dates: List<LocalDate>,
         zoneId: ZoneId
     ): List<TidePredictionRecord> = coroutineScope {
-        dates.map { date ->
-            async {
-                cache.getPredictions(station.id, date) ?: run {
-                    // If not in cache, fetch from NOAA
+        // First, try to get all dates from cache
+        val cachedData = dates.associateWith { date ->
+            cache.getPredictions(station.id, date)
+        }
+
+        // For dates not in cache, fetch them in parallel
+        val missingDates = cachedData.filterValues { it == null }.keys.toList()
+        val fetchedData = if (missingDates.isNotEmpty()) {
+            // Fetch all missing data in parallel
+            val fetchResults = missingDates.map { date ->
+                async {
                     if (station.stationType == "S") {
                         val extremes = fetchNoaaExtremes(station, date, zoneId)
-                        cache.savePredictions(station.id, date, emptyList(), extremes, "S")
+                        date to TidePredictionRecord(
+                            stationId = station.id,
+                            date = date.format(DateTimeFormatter.ISO_DATE),
+                            stationType = "S",
+                            predictions = emptyList(),
+                            extremes = extremes.map {
+                                CachedExtreme(it.timestamp, it.height, it.type.toString())
+                            },
+                            lastUpdated = System.currentTimeMillis(),
+                            ttl = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000 // 7 days
+                        )
                     } else {
                         val predictions = fetchNoaaPredictions(station, date, zoneId)
                         val extremes = fetchNoaaExtremes(station, date, zoneId)
-                        cache.savePredictions(station.id, date, predictions, extremes, "R")
+                        date to TidePredictionRecord(
+                            stationId = station.id,
+                            date = date.format(DateTimeFormatter.ISO_DATE),
+                            stationType = "R",
+                            predictions = predictions.map {
+                                CachedPrediction(it.timestamp, it.height)
+                            },
+                            extremes = extremes.map {
+                                CachedExtreme(it.timestamp, it.height, it.type.toString())
+                            },
+                            lastUpdated = System.currentTimeMillis(),
+                            ttl = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000 // 7 days
+                        )
                     }
-                    cache.getPredictions(station.id, date)!!
                 }
-            }
-        }.awaitAll()
+            }.awaitAll().toMap()
+
+            // Save all fetched records in a batch
+            cache.savePredictionsBatch(fetchResults.values.toList())
+
+            fetchResults.values.toList()
+        } else {
+            emptyList()
+        }
+
+        // Combine cached and freshly fetched data
+        dates.map { date ->
+            cachedData[date] ?: fetchedData.find {
+                it.date == date.format(DateTimeFormatter.ISO_DATE)
+            } ?: throw IllegalStateException("Failed to get data for date: $date")
+        }
     }
 
     internal fun interpolateExtremes(
