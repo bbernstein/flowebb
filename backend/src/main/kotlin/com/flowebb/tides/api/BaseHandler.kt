@@ -19,7 +19,7 @@ abstract class BaseHandler : RequestHandler<APIGatewayProxyRequestEvent, APIGate
 
     override fun handleRequest(
         input: APIGatewayProxyRequestEvent,
-        context: Context
+        context: Context,
     ): APIGatewayProxyResponseEvent {
         return try {
             runBlocking {
@@ -34,7 +34,7 @@ abstract class BaseHandler : RequestHandler<APIGatewayProxyRequestEvent, APIGate
 
     abstract suspend fun handleRequestSuspend(
         input: APIGatewayProxyRequestEvent,
-        context: Context
+        context: Context,
     ): APIGatewayProxyResponseEvent
 
     protected fun success(response: ApiResponse): APIGatewayProxyResponseEvent {

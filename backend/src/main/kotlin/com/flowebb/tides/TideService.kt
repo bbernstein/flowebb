@@ -17,7 +17,7 @@ import java.time.temporal.ChronoUnit
 open class TideService(
     private val stationService: StationService,
     private val calculator: TideLevelCalculator = TideLevelCalculator(),
-    private val cache: TidePredictionCache = TidePredictionCache()
+    private val cache: TidePredictionCache = TidePredictionCache(),
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -25,7 +25,7 @@ open class TideService(
         latitude: Double,
         longitude: Double,
         startDateTimeStr: String?,
-        endDateTimeStr: String?
+        endDateTimeStr: String?,
     ): ExtendedTideResponse {
         logger.debug { "Getting current tide for lat=$latitude, lon=$longitude" }
         val stations = stationService.findNearestStations(latitude, longitude, 1)
@@ -38,7 +38,7 @@ open class TideService(
     open suspend fun getCurrentTideForStation(
         stationId: String,
         startDateTimeStr: String?,
-        endDateTimeStr: String?
+        endDateTimeStr: String?,
     ): ExtendedTideResponse {
         logger.debug { "Getting current tide for station $stationId" }
         try {
@@ -54,16 +54,22 @@ open class TideService(
     private suspend fun getCurrentTideForStation(
         station: Station,
         startDateTimeStr: String?,
-        endDateTimeStr: String?
+        endDateTimeStr: String?,
     ): ExtendedTideResponse {
         val stationZone = calculator.getStationZoneId(station)
-        val startDateTime = startDateTimeStr?.let {
-            LocalDateTime.parse(it, DateTimeFormatter.ISO_DATE_TIME).atZone(stationZone).toInstant()
-        } ?: Instant.now().atZone(stationZone).truncatedTo(ChronoUnit.DAYS).toInstant()
+        val startDateTime =
+            startDateTimeStr?.let {
+                LocalDateTime.parse(it, DateTimeFormatter.ISO_DATE_TIME).atZone(stationZone).toInstant()
+            } ?: Instant
+                .now()
+                .atZone(stationZone)
+                .truncatedTo(ChronoUnit.DAYS)
+                .toInstant()
 
-        val endDateTime = endDateTimeStr?.let {
-            LocalDateTime.parse(it, DateTimeFormatter.ISO_DATE_TIME).atZone(stationZone).toInstant()
-        } ?: startDateTime.plus(1, ChronoUnit.DAYS)
+        val endDateTime =
+            endDateTimeStr?.let {
+                LocalDateTime.parse(it, DateTimeFormatter.ISO_DATE_TIME).atZone(stationZone).toInstant()
+            } ?: startDateTime.plus(1, ChronoUnit.DAYS)
 
         if (Duration.between(startDateTime, endDateTime).toDays() > 5) {
             throw IllegalArgumentException("Date range cannot exceed 5 days")
@@ -73,23 +79,30 @@ open class TideService(
         val currentTime = Instant.now()
 
         // if using extremes to calculated tides, go back 1 day before starttime so we can interpolate the start of the day
-        val startTime = if (useExtremes) {
-            startDateTime.minus(1, ChronoUnit.DAYS)
-        } else {
-            startDateTime
-        }
+        val startTime =
+            if (useExtremes) {
+                startDateTime.minus(1, ChronoUnit.DAYS)
+            } else {
+                startDateTime
+            }
 
         val endTime = endDateTime.plus(1, ChronoUnit.DAYS)
 
         // get list of dates from startDateTime to endDateTime
         // which may be any number of days in the past or future
         // as type List<LocalDate>
-        val dates = (0..Duration.between(startTime, endTime).toDays()).map {
-            startTime.atZone(stationZone).plusDays(it).toLocalDate()
-        }
+        val dates =
+            (0..Duration.between(startTime, endTime).toDays()).map {
+                startTime.atZone(stationZone).plusDays(it).toLocalDate()
+            }
 
         val startOfDay = startDateTime.atZone(stationZone).truncatedTo(ChronoUnit.DAYS).toInstant()
-        val endOfDay = endDateTime.atZone(stationZone).plusDays(1).truncatedTo(ChronoUnit.DAYS).toInstant()
+        val endOfDay =
+            endDateTime
+                .atZone(stationZone)
+                .plusDays(1)
+                .truncatedTo(ChronoUnit.DAYS)
+                .toInstant()
         val startOfDayMillis = startOfDay.toEpochMilli()
         val endOfDayMillis = endOfDay.toEpochMilli()
 
@@ -97,10 +110,14 @@ open class TideService(
         val cachedDataList = calculator.getCachedDayData(station, dates, stationZone)
 
         // Combine all predictions and extremes
-        val allPredictions = cachedDataList.flatMap { cache.convertToPredictions(it.predictions) }
-            .sortedBy { it.timestamp }
-        val allExtremes = cachedDataList.flatMap { cache.convertToExtremes(it.extremes) }
-            .sortedBy { it.timestamp }
+        val allPredictions =
+            cachedDataList
+                .flatMap { cache.convertToPredictions(it.predictions) }
+                .sortedBy { it.timestamp }
+        val allExtremes =
+            cachedDataList
+                .flatMap { cache.convertToExtremes(it.extremes) }
+                .sortedBy { it.timestamp }
 
         // these are for calculating the current tide only
         val rangeIncludesNow = currentTime.toEpochMilli() in startOfDayMillis..endOfDayMillis
@@ -112,11 +129,12 @@ open class TideService(
         val predictions = mutableListOf<TidePrediction>()
         var t = startOfDayMillis
         while (t <= endOfDayMillis) {
-            val height = if (useExtremes) {
-                calculator.interpolateExtremes(allExtremes, t)
-            } else {
-                calculator.interpolatePredictions(allPredictions, t)
-            }
+            val height =
+                if (useExtremes) {
+                    calculator.interpolateExtremes(allExtremes, t)
+                } else {
+                    calculator.interpolatePredictions(allPredictions, t)
+                }
 
             // Only calculate current tide if it's in the date range
             if (rangeIncludesNow) {
@@ -138,13 +156,15 @@ open class TideService(
             t += Duration.ofMinutes(6).toMillis()
         }
 
-        val resultPredictions = predictions.filter {
-            it.timestamp >= startDateTime.toEpochMilli() && it.timestamp <= endDateTime.toEpochMilli()
-        }
+        val resultPredictions =
+            predictions.filter {
+                it.timestamp >= startDateTime.toEpochMilli() && it.timestamp <= endDateTime.toEpochMilli()
+            }
 
-        val resultExtremes = allExtremes.filter {
-            it.timestamp >= startDateTime.toEpochMilli() && it.timestamp <= endDateTime.toEpochMilli()
-        }
+        val resultExtremes =
+            allExtremes.filter {
+                it.timestamp >= startDateTime.toEpochMilli() && it.timestamp <= endDateTime.toEpochMilli()
+            }
 
         return ExtendedTideResponse(
             timestamp = currentTime.toEpochMilli(),
@@ -159,7 +179,7 @@ open class TideService(
             calculationMethod = "NOAA API",
             extremes = resultExtremes,
             predictions = resultPredictions,
-            timeZoneOffsetSeconds = station.timeZoneOffset?.totalSeconds
+            timeZoneOffsetSeconds = station.timeZoneOffset?.totalSeconds,
         )
     }
 }

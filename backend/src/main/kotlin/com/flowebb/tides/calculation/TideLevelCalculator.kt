@@ -6,76 +6,87 @@ import com.flowebb.tides.cache.CachedPrediction
 import com.flowebb.tides.cache.TidePredictionCache
 import com.flowebb.tides.cache.TidePredictionRecord
 import com.flowebb.tides.station.Station
-import io.ktor.client.call.*
+import io.ktor.client.call.body
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import org.apache.commons.math3.analysis.interpolation.SplineInterpolator
 import org.apache.commons.math3.analysis.polynomials.PolynomialSplineFunction
-import java.time.*
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 class TideLevelCalculator(
     private val httpClient: HttpClientService = HttpClientService(),
-    private val cache: TidePredictionCache = TidePredictionCache()
+    private val cache: TidePredictionCache = TidePredictionCache(),
 ) {
-    private val noaaDateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-        .withZone(ZoneOffset.UTC)
+    private val noaaDateFormatter =
+        DateTimeFormatter
+            .ofPattern("yyyy-MM-dd HH:mm")
+            .withZone(ZoneOffset.UTC)
 
-    fun getStationZoneId(station: Station): ZoneId {
-        return station.timeZoneOffset?.let { ZoneId.ofOffset("", it) }
+    fun getStationZoneId(station: Station): ZoneId =
+        station.timeZoneOffset?.let { ZoneId.ofOffset("", it) }
             ?: ZoneOffset.UTC
-    }
 
     suspend fun getCachedDayData(
         station: Station,
         dates: List<LocalDate>,
-        zoneId: ZoneId
-    ): List<TidePredictionRecord> = coroutineScope {
-        val results = dates.map { date ->
-            async {
-                val cachedData = cache.getPredictions(station.id, date)
-                if (cachedData != null) {
-                    cachedData
-                } else {
-                    val fetchedData = if (station.stationType == "S") {
-                        val extremes = fetchNoaaExtremes(station, date, zoneId)
-                        TidePredictionRecord(
-                            stationId = station.id,
-                            date = date.format(DateTimeFormatter.ISO_DATE),
-                            stationType = "S",
-                            predictions = emptyList(),
-                            extremes = extremes.map {
-                                CachedExtreme(it.timestamp, it.height, it.type.toString())
-                            },
-                            lastUpdated = System.currentTimeMillis(),
-                            ttl = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000 // 7 days
-                        )
-                    } else {
-                        val predictions = fetchNoaaPredictions(station, date, zoneId)
-                        val extremes = fetchNoaaExtremes(station, date, zoneId)
-                        TidePredictionRecord(
-                            stationId = station.id,
-                            date = date.format(DateTimeFormatter.ISO_DATE),
-                            stationType = "R",
-                            predictions = predictions.map {
-                                CachedPrediction(it.timestamp, it.height)
-                            },
-                            extremes = extremes.map {
-                                CachedExtreme(it.timestamp, it.height, it.type.toString())
-                            },
-                            lastUpdated = System.currentTimeMillis(),
-                            ttl = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000 // 7 days
-                        )
-                    }
-                    cache.savePredictions(fetchedData)
-                    fetchedData
-                }
-            }
-        }.awaitAll()
+        zoneId: ZoneId,
+    ): List<TidePredictionRecord> =
+        coroutineScope {
+            val results =
+                dates
+                    .map { date ->
+                        async {
+                            val cachedData = cache.getPredictions(station.id, date)
+                            if (cachedData != null) {
+                                cachedData
+                            } else {
+                                val fetchedData =
+                                    if (station.stationType == "S") {
+                                        val extremes = fetchNoaaExtremes(station, date, zoneId)
+                                        TidePredictionRecord(
+                                            stationId = station.id,
+                                            date = date.format(DateTimeFormatter.ISO_DATE),
+                                            stationType = "S",
+                                            predictions = emptyList(),
+                                            extremes =
+                                            extremes.map {
+                                                CachedExtreme(it.timestamp, it.height, it.type.toString())
+                                            },
+                                            lastUpdated = System.currentTimeMillis(),
+                                            ttl = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000, // 7 days
+                                        )
+                                    } else {
+                                        val predictions = fetchNoaaPredictions(station, date, zoneId)
+                                        val extremes = fetchNoaaExtremes(station, date, zoneId)
+                                        TidePredictionRecord(
+                                            stationId = station.id,
+                                            date = date.format(DateTimeFormatter.ISO_DATE),
+                                            stationType = "R",
+                                            predictions =
+                                            predictions.map {
+                                                CachedPrediction(it.timestamp, it.height)
+                                            },
+                                            extremes =
+                                            extremes.map {
+                                                CachedExtreme(it.timestamp, it.height, it.type.toString())
+                                            },
+                                            lastUpdated = System.currentTimeMillis(),
+                                            ttl = System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000, // 7 days
+                                        )
+                                    }
+                                cache.savePredictions(fetchedData)
+                                fetchedData
+                            }
+                        }
+                    }.awaitAll()
 
-        results
-    }
+            results
+        }
 
 //    suspend fun getCachedDayData(
 //        station: Station,
@@ -146,7 +157,7 @@ class TideLevelCalculator(
 
     internal fun interpolateExtremes(
         extremes: List<TideExtreme>,
-        timestamp: Long
+        timestamp: Long,
     ): Double {
         if (extremes.isEmpty()) throw IllegalStateException("No extremes available for interpolation")
 
@@ -169,7 +180,7 @@ class TideLevelCalculator(
 
     internal fun interpolatePredictions(
         predictions: List<TidePrediction>,
-        timestamp: Long
+        timestamp: Long,
     ): Double {
         val sorted = predictions.sortedBy { it.timestamp }
 
@@ -180,7 +191,7 @@ class TideLevelCalculator(
         } else {
             val insertionPoint = -(idx + 1)
             if (insertionPoint == 0 || insertionPoint >= sorted.size) {
-                throw IllegalStateException("No predictions available for the requested time ${timestamp}")
+                throw IllegalStateException("No predictions available for the requested time $timestamp")
             } else {
                 val before = sorted[insertionPoint - 1]
                 val after = sorted[insertionPoint]
@@ -195,12 +206,13 @@ class TideLevelCalculator(
     private suspend fun fetchNoaaPredictions(
         station: Station,
         date: LocalDate,
-        zoneId: ZoneId
+        zoneId: ZoneId,
     ): List<TidePrediction> {
         val dateStr = date.format(DateTimeFormatter.BASIC_ISO_DATE)
         return httpClient.get(
             url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter",
-            queryParams = mapOf(
+            queryParams =
+            mapOf(
                 "station" to station.id,
                 "begin_date" to dateStr,
                 "end_date" to dateStr,
@@ -209,16 +221,18 @@ class TideLevelCalculator(
                 "units" to "english",
                 "time_zone" to "lst",
                 "format" to "json",
-                "interval" to "6"
-            )
+                "interval" to "6",
+            ),
         ) { response ->
             response.body<NoaaResponse>().predictions.map { prediction ->
                 TidePrediction(
-                    timestamp = LocalDateTime.parse(prediction.t, noaaDateFormatter)
+                    timestamp =
+                    LocalDateTime
+                        .parse(prediction.t, noaaDateFormatter)
                         .atZone(zoneId)
                         .toInstant()
                         .toEpochMilli(),
-                    height = prediction.v.toDouble()
+                    height = prediction.v.toDouble(),
                 )
             }
         }
@@ -227,12 +241,13 @@ class TideLevelCalculator(
     private suspend fun fetchNoaaExtremes(
         station: Station,
         date: LocalDate,
-        zoneId: ZoneId
+        zoneId: ZoneId,
     ): List<TideExtreme> {
         val dateStr = date.format(DateTimeFormatter.BASIC_ISO_DATE)
         return httpClient.get(
             url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter",
-            queryParams = mapOf(
+            queryParams =
+            mapOf(
                 "station" to station.id,
                 "begin_date" to dateStr,
                 "end_date" to dateStr,
@@ -241,17 +256,19 @@ class TideLevelCalculator(
                 "units" to "english",
                 "time_zone" to "lst",
                 "format" to "json",
-                "interval" to "hilo"
-            )
+                "interval" to "hilo",
+            ),
         ) { response ->
             response.body<NoaaResponse>().predictions.map { prediction ->
                 TideExtreme(
                     type = if (prediction.type == "H") TideType.HIGH else TideType.LOW,
-                    timestamp = LocalDateTime.parse(prediction.t, noaaDateFormatter)
+                    timestamp =
+                    LocalDateTime
+                        .parse(prediction.t, noaaDateFormatter)
                         .atZone(zoneId)
                         .toInstant()
                         .toEpochMilli(),
-                    height = prediction.v.toDouble()
+                    height = prediction.v.toDouble(),
                 )
             }
         }

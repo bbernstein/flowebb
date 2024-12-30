@@ -13,6 +13,7 @@ plugins {
     kotlin("jvm") version "2.0.21"
     id("org.jetbrains.kotlin.plugin.serialization") version "2.0.21"
     id("com.github.johnrengelman.shadow") version "8.1.1"
+    id("org.jlleitschuh.gradle.ktlint") version "11.4.0" // Add this line
     application
 }
 
@@ -103,7 +104,7 @@ tasks {
             freeCompilerArgs.addAll(
                 "-Xjvm-default=all",
                 "-opt-in=kotlin.RequiresOptIn",
-                "-Xjsr305=strict"
+                "-Xjsr305=strict",
             )
         }
     }
@@ -116,6 +117,18 @@ tasks {
         }
     }
 
+    ktlint {
+        version.set("0.48.2") // Use a compatible version
+        android.set(false)
+        outputToConsole.set(true)
+        ignoreFailures.set(false)
+        enableExperimentalRules.set(true)
+    }
+
+    ktlintCheck {
+        dependsOn("ktlintFormat")
+    }
+
     test {
         useJUnitPlatform()
     }
@@ -125,8 +138,8 @@ tasks {
             attributes(
                 mapOf(
                     "Implementation-Title" to "Tides API",
-                    "Implementation-Version" to project.version
-                )
+                    "Implementation-Version" to project.version,
+                ),
             )
         }
 

@@ -5,8 +5,8 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent
 import com.flowebb.tides.api.BaseHandler
 import com.flowebb.tides.api.StationsResponse
-import com.flowebb.tides.station.StationService
 import com.flowebb.tides.station.DynamoStationFinder
+import com.flowebb.tides.station.StationService
 import com.flowebb.tides.station.StationSource
 import mu.KotlinLogging
 
@@ -14,13 +14,15 @@ import mu.KotlinLogging
 class StationsLambda : BaseHandler() {
     private val logger = KotlinLogging.logger {}
 
-    private val stationService = StationService(mapOf(
-        StationSource.NOAA to DynamoStationFinder()
-    ))
+    private val stationService = StationService(
+        mapOf(
+            StationSource.NOAA to DynamoStationFinder(),
+        ),
+    )
 
     override suspend fun handleRequestSuspend(
         input: APIGatewayProxyRequestEvent,
-        context: Context
+        context: Context,
     ): APIGatewayProxyResponseEvent {
         logger.info { "Received request with parameters: ${input.queryStringParameters}" }
 
@@ -46,7 +48,7 @@ class StationsLambda : BaseHandler() {
                     stationService.findNearestStations(
                         latitude = lat,
                         longitude = lon,
-                        preferredSource = null
+                        preferredSource = null,
                     )
                 }
                 else -> {

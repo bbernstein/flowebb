@@ -11,14 +11,15 @@ import java.time.ZoneOffset
 @OptIn(ExperimentalSerializationApi::class)
 @Serializer(forClass = ZoneOffset::class)
 object ZoneOffsetSerializer : KSerializer<ZoneOffset> {
-    override fun serialize(encoder: Encoder, value: ZoneOffset) {
+    override fun serialize(
+        encoder: Encoder,
+        value: ZoneOffset,
+    ) {
         // Store as total seconds to handle non-hour offsets
         encoder.encodeString(value.totalSeconds.toString())
     }
 
-    override fun deserialize(decoder: Decoder): ZoneOffset {
-        return ZoneOffset.ofTotalSeconds(decoder.decodeString().toInt())
-    }
+    override fun deserialize(decoder: Decoder): ZoneOffset = ZoneOffset.ofTotalSeconds(decoder.decodeString().toInt())
 }
 
 @Serializable
@@ -35,13 +36,13 @@ data class Station(
     @Serializable(with = ZoneOffsetSerializer::class)
     val timeZoneOffset: ZoneOffset? = null,
     val level: String? = null,
-    val stationType: String? = null  // Added stationType field
+    val stationType: String? = null, // Added stationType field
 )
 
 enum class StationSource {
     NOAA,
-    UKHO,  // UK Hydrographic Office
-    CHS,   // Canadian Hydrographic Service
+    UKHO, // UK Hydrographic Office
+    CHS, // Canadian Hydrographic Service
     // Add more sources as needed
 }
 
@@ -50,5 +51,5 @@ enum class StationType {
     TIDAL_CURRENTS,
     WATER_TEMPERATURE,
     AIR_TEMPERATURE,
-    WIND
+    WIND,
 }

@@ -9,7 +9,7 @@ data class NoaaStationMetadata(
     val lat: Double,
     val lon: Double,
     val state: String? = null,
-    val type: String? = null,  // This maps to stationType
+    val type: String? = null, // This maps to stationType
     val distance: Double? = null,
     val stationName: String? = null,
     val region: String? = null,
@@ -25,10 +25,10 @@ data class NoaaStationMetadata(
     val geoGroupName: String? = null,
     val level: String? = null,
     val geoGroupType: String? = null,
-    val abbrev: String? = null
+    val abbrev: String? = null,
 )
 
 @Serializable
 data class NoaaStationsResponse(
-    val stationList: List<NoaaStationMetadata>
+    val stationList: List<NoaaStationMetadata>,
 )

@@ -1,9 +1,9 @@
 package com.flowebb.tides
 
 import com.flowebb.config.DynamoConfig
+import io.mockk.mockk
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
-import io.mockk.mockk
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient
 
 abstract class DynamoTestBase {
@@ -26,4 +26,3 @@ abstract class DynamoTestBase {
         }
     }
 }
-
