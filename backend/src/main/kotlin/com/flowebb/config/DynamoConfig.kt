@@ -1,13 +1,13 @@
 package com.flowebb.config
 
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-import software.amazon.awssdk.regions.Region
+import mu.KotlinLogging
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import java.net.URI
-import mu.KotlinLogging
 
 object DynamoConfig {
     private val logger = KotlinLogging.logger {}
@@ -17,7 +17,8 @@ object DynamoConfig {
         get() = System.getProperty("test.environment") == "true"
 
     private val isLocalDevelopment: Boolean
-        get() = System.getenv("AWS_SAM_LOCAL") == "true" ||
+        get() =
+            System.getenv("AWS_SAM_LOCAL") == "true" ||
                 (!System.getenv("DYNAMODB_ENDPOINT").isNullOrBlank())
 
     // Private variables for client management
@@ -26,13 +27,16 @@ object DynamoConfig {
 
     // Public access to the client
     val enhancedClient: DynamoDbEnhancedClient
-        get() = when {
-            isTestEnvironment -> testClient ?: throw IllegalStateException(
-                "Test client not set. Call setTestClient() first in test environment."
-            )
-            isLocalDevelopment -> createLocalClient()
-            else -> productionClient
-        }
+        get() =
+            when {
+                isTestEnvironment ->
+                    testClient ?: throw IllegalStateException(
+                        "Test client not set. Call setTestClient() first in test environment.",
+                    )
+
+                isLocalDevelopment -> createLocalClient()
+                else -> productionClient
+            }
 
     // Testing support
     fun setTestClient(client: DynamoDbEnhancedClient) {
@@ -52,8 +56,9 @@ object DynamoConfig {
     }
 
     private fun createLocalClient(): DynamoDbEnhancedClient {
-        val endpoint = System.getenv("DYNAMODB_ENDPOINT")?.takeIf { it.isNotBlank() }
-            ?: "http://dynamodb-local:8000"
+        val endpoint =
+            System.getenv("DYNAMODB_ENDPOINT")?.takeIf { it.isNotBlank() }
+                ?: "http://dynamodb-local:8000"
         val region = System.getenv("AWS_REGION") ?: "us-west-2"
         val accessKeyId = System.getenv("AWS_ACCESS_KEY_ID") ?: "local"
         val secretKey = System.getenv("AWS_SECRET_ACCESS_KEY") ?: "local"
@@ -63,33 +68,34 @@ object DynamoConfig {
         logger.debug("  Region: $region")
         logger.debug("  Using local credentials")
 
-        return DynamoDbEnhancedClient.builder()
+        return DynamoDbEnhancedClient
+            .builder()
             .dynamoDbClient(
-                DynamoDbClient.builder()
+                DynamoDbClient
+                    .builder()
                     .httpClient(UrlConnectionHttpClient.builder().build())
                     .endpointOverride(URI(endpoint))
                     .region(Region.of(region))
                     .credentialsProvider(
                         StaticCredentialsProvider.create(
-                            AwsBasicCredentials.create(accessKeyId, secretKey)
-                        )
-                    )
-                    .build()
-            )
-            .build()
+                            AwsBasicCredentials.create(accessKeyId, secretKey),
+                        ),
+                    ).build(),
+            ).build()
             .also { logger.debug("Successfully created local DynamoDB client") }
     }
 
     private fun createProductionClient(): DynamoDbEnhancedClient {
         logger.debug("Initializing production DynamoDB client")
 
-        return DynamoDbEnhancedClient.builder()
+        return DynamoDbEnhancedClient
+            .builder()
             .dynamoDbClient(
-                DynamoDbClient.builder()
+                DynamoDbClient
+                    .builder()
                     .httpClient(UrlConnectionHttpClient.builder().build())
-                    .build()
-            )
-            .build()
+                    .build(),
+            ).build()
             .also { logger.debug("Successfully created production DynamoDB client") }
     }
 }

@@ -1,14 +1,16 @@
 package com.flowebb.tides.station
 
 import com.flowebb.config.DynamoConfig
+import kotlinx.serialization.Serializable
 import mu.KotlinLogging
-import software.amazon.awssdk.enhanced.dynamodb.*
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient
+import software.amazon.awssdk.enhanced.dynamodb.Key
+import software.amazon.awssdk.enhanced.dynamodb.TableSchema
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey
 import java.time.Instant
 import java.time.ZoneOffset
 import kotlin.time.Duration.Companion.days
-import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean
-import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey
-import kotlinx.serialization.Serializable
 
 @DynamoDbBean
 @Serializable
@@ -26,7 +28,7 @@ data class StationCacheItem(
     var ttl: Long = 0,
     var timeZoneOffset: Int? = null,
     var level: String? = null,
-    var stationType: String? = null
+    var stationType: String? = null,
 ) {
     // Required no-arg constructor
     @Suppress("unused")
@@ -34,24 +36,26 @@ data class StationCacheItem(
 }
 
 class DynamoStationFinder(
-    enhancedClient: DynamoDbEnhancedClient = DynamoConfig.enhancedClient
+    enhancedClient: DynamoDbEnhancedClient = DynamoConfig.enhancedClient,
 ) : StationFinder {
     private val logger = KotlinLogging.logger {}
     private val noaaFinder = NoaaStationFinder()
     private val cacheValidityPeriod = 7.days.inWholeMilliseconds
 
-    private val stationsTable = enhancedClient.table(
-        "stations-cache",
-        TableSchema.fromBean(StationCacheItem::class.java)
-    )
+    private val stationsTable =
+        enhancedClient.table(
+            "stations-cache",
+            TableSchema.fromBean(StationCacheItem::class.java),
+        )
 
     override suspend fun findStation(stationId: String): Station {
         logger.debug { "Looking up station: $stationId" }
 
         // Try to get from cache first
-        val cachedStation = stationsTable.getItem(
-            Key.builder().partitionValue(stationId).build()
-        )
+        val cachedStation =
+            stationsTable.getItem(
+                Key.builder().partitionValue(stationId).build(),
+            )
 
         if (cachedStation != null &&
             (Instant.now().toEpochMilli() - cachedStation.lastUpdated) < cacheValidityPeriod
@@ -73,26 +77,27 @@ class DynamoStationFinder(
     override suspend fun findNearestStations(
         latitude: Double,
         longitude: Double,
-        limit: Int
+        limit: Int,
     ): List<Station> {
         logger.debug { "Finding nearest stations to lat=$latitude, lon=$longitude" }
 
         // For coordinate-based searches, always use NOAA finder to get fresh results
         // This ensures we always get the correct nearest stations
-        return noaaFinder.findNearestStations(
-            latitude,
-            longitude,
-            limit
-        ).also {
-            // Cache the individual stations for future lookups
-            it.forEach { station ->
-                stationsTable.putItem(station.toCacheItem())
+        return noaaFinder
+            .findNearestStations(
+                latitude,
+                longitude,
+                limit,
+            ).also {
+                // Cache the individual stations for future lookups
+                it.forEach { station ->
+                    stationsTable.putItem(station.toCacheItem())
+                }
             }
-        }
     }
 
-    private fun StationCacheItem.toStation(): Station {
-        return Station(
+    private fun StationCacheItem.toStation(): Station =
+        Station(
             id = stationId,
             name = name,
             state = state,
@@ -104,9 +109,8 @@ class DynamoStationFinder(
             capabilities = capabilities.map { StationType.valueOf(it) }.toSet(),
             timeZoneOffset = timeZoneOffset?.let { ZoneOffset.ofHours(it) },
             level = level,
-            stationType = stationType
+            stationType = stationType,
         )
-    }
 
     private fun Station.toCacheItem(): StationCacheItem {
         val now = System.currentTimeMillis()
@@ -123,7 +127,7 @@ class DynamoStationFinder(
             ttl = now + cacheValidityPeriod,
             timeZoneOffset = timeZoneOffset?.totalSeconds?.div(3600),
             level = level,
-            stationType = stationType
+            stationType = stationType,
         )
     }
 }

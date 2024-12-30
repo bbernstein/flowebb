@@ -1,24 +1,24 @@
 package com.flowebb.tides.station.cache
 
 import com.flowebb.tides.station.NoaaStationMetadata
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import mu.KotlinLogging
+import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.GetObjectRequest
+import software.amazon.awssdk.services.s3.model.GetObjectResponse
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import java.io.IOException
+import java.io.InputStreamReader
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.Instant
-import mu.KotlinLogging
-import software.amazon.awssdk.core.ResponseInputStream
-import software.amazon.awssdk.services.s3.model.GetObjectResponse
-import java.io.InputStreamReader
 import kotlin.io.readText
-import kotlinx.serialization.Serializable
 
 class StationListCache(
     private val isLocalDevelopment: Boolean = System.getenv("AWS_SAM_LOCAL") == "true",
@@ -26,9 +26,11 @@ class StationListCache(
         S3Client.builder()
             .httpClient(UrlConnectionHttpClient.builder().build())
             .build()
-    } else null,
+    } else {
+        null
+    },
     private val bucketName: String = System.getenv("STATION_LIST_BUCKET") ?: "tides-station-cache",
-    baseCacheDir: String? = null
+    baseCacheDir: String? = null,
 ) {
     private val logger = KotlinLogging.logger {}
     private val json = Json {
@@ -87,7 +89,9 @@ class StationListCache(
                 logger.error(e) { "Failed to read local station list cache" }
                 null
             }
-        } else null
+        } else {
+            null
+        }
     }
 
     private fun saveLocalStationList(stations: List<NoaaStationMetadata>) {
@@ -100,7 +104,7 @@ class StationListCache(
             // Save metadata
             val metadata = CacheMetadata(
                 lastUpdated = Instant.now().toEpochMilli(),
-                count = stations.size
+                count = stations.size,
             )
             val metadataFile = localCacheDir.resolve(metadataKey).toFile()
             metadataFile.writeText(json.encodeToString(metadata))
@@ -108,7 +112,7 @@ class StationListCache(
             logger.info { "Saved ${stations.size} stations to local cache at $localCacheDir" }
         } catch (e: Exception) {
             logger.error(e) { "Failed to save local station list cache" }
-            throw e  // Rethrow to allow caller to handle
+            throw e // Rethrow to allow caller to handle
         }
     }
 
@@ -121,13 +125,15 @@ class StationListCache(
                 logger.error(e) { "Failed to read local metadata" }
                 null
             }
-        } else null
+        } else {
+            null
+        }
     }
 
     @Serializable
     data class CacheMetadata(
         val lastUpdated: Long,
-        val count: Int
+        val count: Int,
     )
 
     fun getStationList(): List<NoaaStationMetadata>? {
@@ -190,7 +196,7 @@ class StationListCache(
             // Save metadata
             val metadata = CacheMetadata(
                 lastUpdated = Instant.now().toEpochMilli(),
-                count = stations.size
+                count = stations.size,
             )
             val metadataRequest = PutObjectRequest.builder()
                 .bucket(bucketName)
