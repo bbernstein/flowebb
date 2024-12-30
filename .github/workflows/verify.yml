@@ -9,6 +9,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+env:
+  AWS_REGION: us-east-1
+  TF_VERSION: 1.5.0
+
 jobs:
   lint-frontend:
     runs-on: ubuntu-latest
@@ -120,18 +124,19 @@ jobs:
     needs: lint-terraform
     runs-on: ubuntu-latest
     steps:
+
       - uses: actions/checkout@v3
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.5.0
+          terraform_version: ${{ env.TF_VERSION }}
 
       - name: Terraform Init
         working-directory: infrastructure/terraform/environments/prod
@@ -139,7 +144,7 @@ jobs:
 
       - name: Terraform Plan
         working-directory: infrastructure/terraform/environments/prod
-        run: terraform plan -detailed-exitcode
+        run: terraform plan -out=tfplan
         env:
           TF_VAR_project_name: ${{ secrets.TF_VAR_PROJECT_NAME }}
           TF_VAR_domain_name: ${{ secrets.TF_VAR_DOMAIN_NAME }}
