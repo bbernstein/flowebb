@@ -188,13 +188,18 @@ jobs:
           working_directory: infrastructure/terraform
 
   dependency-review:
+    # Only run on pull requests
     if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v3
 
       - name: 'Dependency Review'
         uses: actions/dependency-review-action@v3
+        with:
+          fail-on-severity: high
+          deny-licenses: 'GPL-1.0, LGPL-2.0'  # Optional: Add any licenses you want to deny
 
   verify-all:
     needs: [build-frontend, test-backend, verify-terraform, security-scan, dependency-review]
