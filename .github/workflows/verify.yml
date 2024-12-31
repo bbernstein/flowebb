@@ -76,6 +76,8 @@ jobs:
         with:
           version: latest
           working-directory: backend-go
+          args: --timeout=5m
+          skip-cache: true
 
       - name: Run tests
         working-directory: backend-go
