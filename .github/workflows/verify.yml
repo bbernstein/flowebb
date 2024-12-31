@@ -1,10 +1,6 @@
 name: Verify
 
 on:
-  push:
-    branches:
-      - '**'
-      - '!main'  # Exclude main branch as it should be protected
   pull_request:
     branches: [ main ]
   workflow_dispatch:
