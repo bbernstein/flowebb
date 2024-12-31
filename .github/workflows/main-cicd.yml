@@ -77,11 +77,11 @@ jobs:
 
       - name: Update Lambda Functions
         run: |
-          aws lambda update-function-code --function-name ${var.project_name}-stations-${var.environment} --zip-file fileb://backend-go/stations.zip
-          aws lambda update-function-code --function-name ${var.project_name}-tides-${var.environment} --zip-file fileb://backend-go/tides.zip
+          aws lambda update-function-code --function-name "flowebb-stations-prod" --zip-file fileb://backend-go/stations.zip
+          aws lambda update-function-code --function-name "flowebb-tides-prod" --zip-file fileb://backend-go/tides.zip
           # Wait for updates to complete
-          aws lambda wait function-updated --function-name ${var.project_name}-stations-${var.environment}
-          aws lambda wait function-updated --function-name ${var.project_name}-tides-${var.environment}
+          aws lambda wait function-updated --function-name "flowebb-stations-prod"
+          aws lambda wait function-updated --function-name "flowebb-tides-prod"
 
   deploy-frontend:
     needs: deploy-infrastructure
