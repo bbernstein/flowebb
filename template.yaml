@@ -23,20 +23,16 @@ Globals:
       Variables:
         STATION_LIST_BUCKET: !Ref StationListBucket
         AWS_REGION: !Ref AWS::Region
-        ENV: !If
-          - IsLocal
-          - "development"
-          - "prod"
-        DYNAMODB_ENDPOINT: !If
-          - IsLocal
-          - "http://dynamodb-local:8000"
-          - !Ref AWS::NoValue
-        ALLOWED_ORIGINS: !If
-          - IsLocal
-          - "http://localhost:3000"
-          - "https://app.flowebb.com"
+        ENV: !If [ IsLocal, "development", "prod" ]
+        DYNAMODB_ENDPOINT: !If [ IsLocal, "http://dynamodb-local:8000", "" ]
+        ALLOWED_ORIGINS: !If [ IsLocal, "http://localhost:3000", "https://app.flowebb.com" ]
         LOG_LEVEL: "debug"
-
+        CACHE_LRU_SIZE: "1000"
+        CACHE_LRU_TTL_MINUTES: "5"
+        CACHE_DYNAMO_TTL_DAYS: "1"
+        CACHE_STATION_LIST_TTL_DAYS: "1"
+        CACHE_ENABLE_LRU: "true"
+        CACHE_ENABLE_DYNAMO: "true"
   Api:
     Cors:
       AllowMethods: "'*'"

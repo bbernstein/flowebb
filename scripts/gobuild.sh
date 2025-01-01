@@ -41,8 +41,4 @@ fi
 chmod +x .aws-sam/build/StationsFunction/bootstrap
 chmod +x .aws-sam/build/TidesFunction/bootstrap
 
-echo "Build verification complete!"
-ls -la .aws-sam/build/StationsFunction/
-ls -la .aws-sam/build/TidesFunction/
-
 echo "Build complete!"
