@@ -79,10 +79,6 @@ jobs:
           args: --timeout=5m
           skip-cache: true
 
-      - name: Run tests
-        working-directory: backend-go
-        run: go test ./...
-
   build-frontend:
     needs: lint-frontend
     runs-on: ubuntu-latest
@@ -121,6 +117,10 @@ jobs:
         working-directory: backend-go
         run: |
           go test -v ./...
+
+      - name: Run race tests
+        working-directory: backend-go
+        run: |
           go test -race ./...
 
       - name: Upload test results

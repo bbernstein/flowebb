@@ -1,5 +1,9 @@
 # Local Development Setup Guide
 
+## Status
+
+[![Verify](https://github.com/bbernstein/flowebb/actions/workflows/verify.yml/badge.svg)](https://github.com/bbernstein/flowebb/actions/workflows/verify.yml)
+
 ## Prerequisites
 
 - Node.js (v18 or later)
@@ -172,5 +176,3 @@ tidechart/
 
 For more detailed information about specific components, please refer to:
 - [Frontend Documentation](frontend/README.md)
-- [Backend Documentation](backend/README.md)
-- [API Documentation](backend/docs/api-docs.md)
