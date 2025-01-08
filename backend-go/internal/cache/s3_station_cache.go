@@ -13,13 +13,19 @@ import (
 	"time"
 )
 
+// S3Client defines the interface for S3 operations we need
+type S3Client interface {
+	GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+	PutObject(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+}
+
 const (
 	cacheKey = "stations.json"
 )
 
 // S3StationCache provides caching for station lists in S3
 type S3StationCache struct {
-	client     *s3.Client
+	client     S3Client
 	bucketName string
 	ttl        time.Duration
 	clock      clock // Use the same clock interface from cache package
@@ -40,6 +46,10 @@ type StationListCacheProvider interface {
 
 // GetStations retrieves stations from S3 cache if available and valid
 func (c *S3StationCache) GetStations(ctx context.Context) ([]models.Station, error) {
+	if c.bucketName == "" {
+		return nil, fmt.Errorf("empty bucket name")
+	}
+
 	// Get object from S3
 	result, err := c.client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(c.bucketName),
@@ -73,6 +83,10 @@ func (c *S3StationCache) GetStations(ctx context.Context) ([]models.Station, err
 
 // SaveStations saves stations to S3 cache
 func (c *S3StationCache) SaveStations(ctx context.Context, stations []models.Station) error {
+	if c.bucketName == "" {
+		return fmt.Errorf("empty bucket name")
+	}
+
 	// Create cache record
 	now := c.clock.Now().Unix()
 	record := StationListCacheRecord{
