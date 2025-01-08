@@ -10,13 +10,24 @@ docker-compose up -d
 
 # Start the SAM API in one terminal
 echo "Starting SAM API..."
-sam local start-api --warm-containers LAZY --docker-network sam-network --port 8080 &
+./scripts/gobuild.sh && \
+sam local start-api \
+  --warm-containers EAGER \
+  --docker-network sam-network \
+  --port 8080 \
+  --parameter-overrides Stage=local \
+  --container-host 0.0.0.0 \
+  --container-host-interface 0.0.0.0 &
 SAM_PID=$!
+
+echo "SAM API started with PID: $SAM_PID"
 
 # Start the Next.js frontend in another terminal
 echo "Starting Next.js frontend..."
 cd frontend && npm run dev &
 NEXT_PID=$!
+
+echo "Next.js frontend started with PID: $NEXT_PID"
 
 # Wait for both processes
 wait $SAM_PID $NEXT_PID

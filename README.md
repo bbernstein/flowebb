@@ -1,178 +1,229 @@
-# Local Development Setup Guide
+# FlowEbb Tide Application
 
-## Status
+FlowEbb is a web application that provides tide information and predictions using NOAA data. It consists of a Next.js frontend, Go backend running on AWS Lambda, and infrastructure managed with Terraform.
 
 [![Verify](https://github.com/bbernstein/flowebb/actions/workflows/verify.yml/badge.svg)](https://github.com/bbernstein/flowebb/actions/workflows/verify.yml)
 
 ## Prerequisites
 
-- Node.js (v18 or later)
-- Java Development Kit (JDK) 11
+- Node.js v18 or later
+- Go 1.21 or later
 - Docker Desktop
 - AWS SAM CLI
-- AWS CLI
+- AWS CLI configured with appropriate credentials
+- Terraform v1.5.0 or later
 - Git
+- IntelliJ IDEA (recommended IDE)
+
+## Repository Structure
+
+```
+flowebb/
+├── frontend/          # Next.js frontend application
+├── backend-go/        # Go backend application
+├── infrastructure/    # Terraform infrastructure code
+├── scripts/          # Development and deployment scripts
+└── docs/             # Documentation
+```
 
 ## Initial Setup
 
-1. Clone the repository and install dependencies:
+1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd tidechart
+git clone https://github.com/bbernstein/flowebb.git
+cd flowebb
+```
 
-# Install frontend dependencies
+2. Install frontend dependencies:
+```bash
 cd frontend
 npm install
 cd ..
 ```
 
-2. Configure Docker socket (MacOS only):
-```bash
-# For MacOS users running newer versions of Docker Desktop
-sudo ln -s $HOME/.docker/run/docker.sock /var/run/docker.sock
-```
-
-3. Create Docker network for SAM:
+3. Configure Docker network for SAM:
 ```bash
 docker network create sam-network
 ```
 
-## Running DynamoDB Local
+## Local Development
 
-1. Start DynamoDB Local and admin interface:
+### Starting the Development Environment
+
+The easiest way to start all components is using the development script:
+
 ```bash
-docker-compose up -d
+./scripts/dev.sh
 ```
 
-2. Initialize DynamoDB tables:
+This script will:
+- Start DynamoDB Local and Admin UI
+- Initialize DynamoDB tables
+- Start the SAM API
+- Start the Next.js frontend
+
+### Manual Component Startup
+
+If you prefer to start components individually:
+
+1. Start DynamoDB Local:
 ```bash
+docker-compose up -d
 ./scripts/init-local-dynamo.sh
 ```
 
-You can access the DynamoDB admin interface at http://localhost:8001
-
-## Starting the Backend
-
-1. Build the backend:
+2. Start the backend:
 ```bash
-cd backend
-./gradlew build
-cd ..
+cd backend-go
+./scripts/gostart.sh
 ```
 
-2. Build and start SAM local API:
-```bash
-sam build
-sam local start-api --warm-containers LAZY --docker-network sam-network --port 8080 --debug-port 5005
-```
-
-The backend API will be available at http://localhost:8080
-
-## Starting the Frontend
-
-1. Start the Next.js development server:
+3. Start the frontend:
 ```bash
 cd frontend
 npm run dev
 ```
 
-The frontend will be available at http://localhost:3000
+The application will be available at:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8080
+- DynamoDB Admin: http://localhost:8001
 
-## Development Scripts
+## Development Workflow
 
-The project includes several utility scripts in the `scripts/` directory:
+### Branch Strategy
 
-- `scripts/dev.sh`: Starts both frontend and backend services
-- `scripts/clear-dynamo.sh`: Clears all DynamoDB tables and recreates them
-- `scripts/init-local-dynamo.sh`: Initializes DynamoDB tables
-- `scripts/debug-sam.sh`: Starts SAM in debug mode
-
-## Environment Variables
-
-### Frontend (.env.development)
-```
-NEXT_PUBLIC_API_URL=http://localhost:8080
-```
-
-### Backend
-The backend uses default local development settings. No additional environment variables are required for local development.
-
-## Debugging
-
-### Backend Debugging
-You can attach a debugger to the SAM Lambda functions using port 5005.
-
-In IntelliJ IDEA:
-1. Go to Run -> Edit Configurations
-2. Add new "Remote JVM Debug"
-3. Set port to 5005
-4. Start debugging
-
-### Frontend Debugging
-You can use Chrome DevTools or the built-in debugger in your IDE for frontend debugging.
-
-## Common Issues and Solutions
-
-### Docker Socket Not Found
-If you see an error about Docker not being reachable:
+1. Create a new feature branch from main:
 ```bash
-# For MacOS
-sudo ln -s $HOME/.docker/run/docker.sock /var/run/docker.sock
+git checkout -b feature/your-feature-name
 ```
 
-### DynamoDB Tables Not Created
-If the DynamoDB tables are missing:
+2. Make your changes and commit following conventional commit messages:
 ```bash
-./scripts/clear-dynamo.sh
-./scripts/init-local-dynamo.sh
+git add .
+git commit -m "feat: add new feature"
 ```
 
-### SAM Build Issues
-If you encounter SAM build issues:
+3. Push your branch and create a Pull Request on GitHub:
 ```bash
-sam build --force-image-build
+git push -u origin feature/your-feature-name
 ```
 
-## Testing
+### Code Quality Checks
 
-### Backend Tests
+Before submitting a PR, run the verification script:
 ```bash
-cd backend
-./gradlew test
+./scripts/verify-local.sh
 ```
 
-### Frontend Tests
+This performs:
+- Frontend linting (`npm run lint`)
+- Go linting and tests
+- Terraform formatting and validation
+
+### Running Tests
+
+#### Frontend Tests
 ```bash
 cd frontend
 npm test
 ```
 
-## Additional Tools
-
-### DynamoDB Admin UI
-- URL: http://localhost:8001
-- Useful for viewing and modifying DynamoDB data
-
-### API Documentation
-- Available at http://localhost:8080/api/docs when running locally
-
-## Project Structure
-
-```
-tidechart/
-├── frontend/          # Next.js frontend application
-├── backend/           # Kotlin/SAM backend application
-├── scripts/           # Development utility scripts
-├── docker-compose.yml # Local development services
-└── template.yaml      # SAM template
+#### Backend Tests
+```bash
+cd backend-go
+# Run tests with coverage
+go test -coverprofile=test-results/coverage.out -covermode=atomic -coverpkg=./... ./...
+# Generate coverage report
+go tool cover -html=test-results/coverage.out -o test-results/coverage.html
 ```
 
-## Contributing
+Coverage requirements:
+- Backend: Minimum 80% coverage
+- Frontend: Minimum 70% coverage
 
-1. Create a new branch for your feature
-2. Make your changes
-3. Run tests
-4. Submit a pull request
+### Debugging
 
-For more detailed information about specific components, please refer to:
-- [Frontend Documentation](frontend/README.md)
+#### Backend Debugging
+1. Use the debug script:
+```bash
+./scripts/debug-sam.sh TidesFunction
+```
+
+2. In IntelliJ IDEA:
+    - Create a "Remote JVM Debug" configuration
+    - Set port to 5005
+    - Start debugging
+
+#### Frontend Debugging
+- Use Chrome DevTools or the built-in debugger in IntelliJ IDEA
+- React Developer Tools extension is recommended
+
+## Deployment
+
+### Production Deployment
+
+Production deployments are automated via GitHub Actions when merging to main:
+
+1. Infrastructure changes are applied first using Terraform
+2. Backend Lambda functions are deployed
+3. Frontend is built and deployed to CloudFront/S3
+
+### Manual Deployment
+
+If needed, components can be deployed manually:
+
+#### Frontend
+```bash
+./scripts/deploy-frontend.sh prod
+```
+
+#### Backend
+```bash
+./scripts/deploy-go-lambda.sh
+```
+
+#### Infrastructure
+```bash
+cd infrastructure/terraform/environments/prod
+terraform init
+terraform plan
+terraform apply
+```
+
+## Configuration
+
+### Environment Variables
+
+Frontend (.env.development, .env.production):
+```
+NEXT_PUBLIC_API_URL=http://localhost:8080  # Development
+NEXT_PUBLIC_API_URL=https://api.flowebb.com # Production
+```
+
+Backend (environment variables in template.yaml):
+```yaml
+Environment:
+  Variables:
+    LOG_LEVEL: debug
+    CACHE_ENABLE_LRU: "true"
+    CACHE_ENABLE_DYNAMO: "true"
+```
+
+## Monitoring and Maintenance
+
+### CloudWatch Logs
+- Lambda function logs: /aws/lambda/flowebb-*
+- API Gateway logs: /aws/apigateway/flowebb-*
+
+### DynamoDB Tables
+- stations-cache: Cached station data
+- tide-predictions-cache: Cached tide predictions
+
+### Health Checks
+- CloudWatch alarms are configured for Lambda errors
+- API Gateway dashboard provides request metrics
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
