@@ -1,12 +1,46 @@
 #!/bin/bash
 
+set -e
+
 export PAGER=""
+
+# Function to cleanup all processes and containers
+cleanup() {
+    echo "Shutting down..."
+
+    # Kill all child processes in this session
+    pkill -P $$
+
+    # Kill any processes using port 8080
+    if command -v lsof >/dev/null 2>&1; then
+        PIDS=$(lsof -t -i:8080 2>/dev/null)
+        if [ ! -z "$PIDS" ]; then
+            echo "Killing processes on port 8080: $PIDS"
+            kill $PIDS 2>/dev/null || true
+        fi
+    fi
+
+    # Kill SAM processes specifically
+    pkill -f "sam local" 2>/dev/null || true
+
+    # Stop docker containers
+    docker-compose down
+
+    # Exit
+    exit 0
+}
+
+# Handle cleanup on script termination
+trap cleanup SIGINT SIGTERM EXIT
 
 # Start DynamoDB Local and Admin UI
 docker-compose up -d
 
 # Create DynamoDB tables if they don't exist
 ./scripts/init-local-dynamo.sh
+
+# this was needed for some reason for me on mac m2 docker desktop
+export DOCKER_HOST=unix://${HOME}/.docker/run/docker.sock
 
 # Start the SAM API in one terminal
 echo "Starting SAM API..."
@@ -31,17 +65,3 @@ echo "Next.js frontend started with PID: $NEXT_PID"
 
 # Wait for both processes
 wait $SAM_PID $NEXT_PID
-
-# Cleanup function
-cleanup() {
-    echo "Shutting down..."
-    kill $SAM_PID $NEXT_PID
-    docker-compose down
-    exit 0
-}
-
-# Handle cleanup on script termination
-trap cleanup SIGINT SIGTERM
-
-# Keep script running
-wait
