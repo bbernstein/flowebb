@@ -234,6 +234,16 @@ export default function TideChart() {
         }],
         credits: {
             enabled: false
+        },
+        accessibility: {
+            enabled: false,
+            description: 'This chart shows the predicted tide levels over time.',
+            announceNewData: {
+                enabled: true
+            },
+            point: {
+                valueDescriptionFormat: '{index}. {xDescription}, tide height: {value} feet.'
+            }
         }
     };
 
