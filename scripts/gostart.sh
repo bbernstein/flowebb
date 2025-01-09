@@ -2,6 +2,9 @@
 
 export PAGER=""
 
+# this was needed for some reason for me on mac m2 docker desktop
+export DOCKER_HOST=unix://${HOME}/.docker/run/docker.sock
+
 ./scripts/gobuild.sh && \
 sam local start-api \
   --warm-containers EAGER \
