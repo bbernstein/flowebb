@@ -4,7 +4,7 @@ set -e
 export PAGER=""
 
 # Frontend checks
-cd frontend && npm run lint
+cd frontend && npm run lint && npm run test && npm run build
 cd ..
 
 # Backend Go checks
