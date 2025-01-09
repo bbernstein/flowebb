@@ -35,6 +35,12 @@ export default function TideChart() {
         type: string;
     }
 
+    if (!tideData.predictions) {
+        tideData.predictions = [];
+    }
+    if (!tideData.extremes) {
+        tideData.extremes = [];
+    }
     const mergedData: CustomPoint[] = [
         ...tideData.predictions.map(p => ({
             x: p.timestamp,
