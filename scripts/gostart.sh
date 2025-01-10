@@ -2,6 +2,12 @@
 
 export PAGER=""
 
+# Start DynamoDB Local and Admin UI
+docker-compose up -d
+
+# Create DynamoDB tables if they don't exist
+./scripts/init-local-dynamo.sh
+
 # this was needed for some reason for me on mac m2 docker desktop
 export DOCKER_HOST=unix://${HOME}/.docker/run/docker.sock
 
