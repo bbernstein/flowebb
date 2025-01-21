@@ -193,6 +193,24 @@ terraform apply
 
 ## Configuration
 
+## Terraform Configuration
+
+The infrastructure is configured using Terraform variables. To get started:
+
+1. Copy the example configuration:
+```bash
+   cp infrastructure/terraform/environments/prod/terraform.tfvars.example infrastructure/terraform/environments/prod/terraform.tfvars
+```
+
+2.  Edit `terraform.tfvars` with your specific values:
+    *   `aws_region`: Your AWS region (e.g., "us-east-1")
+    *   `project_name`: Your project identifier
+    *   `domain_name`: Your root domain
+    *   `frontend_domain`: Domain for the frontend application
+    *   `api_domain`: Domain for the API
+
+Note: The `terraform.tfvars` file contains sensitive configuration and is excluded from version control.
+
 ### Environment Variables
 
 Frontend (.env.development, .env.production):
