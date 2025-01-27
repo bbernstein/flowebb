@@ -108,3 +108,6 @@ ehthumbs_vista.db
 
 *-cache.json
 
+coverage.out
+generated.go
+*_gen.go

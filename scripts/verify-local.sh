@@ -16,7 +16,8 @@ go test -race ./...
 
 mkdir -p test-results
 # Run tests with coverage and enforce minimum threshold (e.g., 80%)
-go test -coverprofile=test-results/coverage.out -covermode=atomic -coverpkg=./... ./... | tee test-results/coverage.txt
+ENV=development
+go test -covermode=atomic -coverpkg="$(go list ./... | grep -v graph/generated | grep -v graph/model | tr '\n' ',')" ./... -coverprofile=test-results/coverage.out
 # Check if coverage meets threshold
 COVERAGE=$(go tool cover -func=test-results/coverage.out | grep total | awk '{print $3}' | sed 's/%//')
 echo "Code coverage: $COVERAGE%"

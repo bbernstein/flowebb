@@ -118,6 +118,10 @@ jobs:
           cache: true
           cache-dependency-path: backend-go/go.sum
 
+      - name: Generate GraphQL code
+        working-directory: backend-go
+        run: go run github.com/99designs/gqlgen generate
+
       - name: Run tests
         working-directory: backend-go
         run: |
@@ -134,6 +138,12 @@ jobs:
         with:
           name: test-results
           path: backend-go/test-results/
+
+      - name: Generate test coverage
+        working-directory: backend-go
+        run: |
+          mkdir -p test-results
+          go test -covermode=atomic -coverpkg=$(go list ./... | grep -v generated | tr '\n' ',') ./... -coverprofile=test-results/coverage.out | tee test-results/coverage.txt
 
       - name: Generate test coverage
         working-directory: backend-go
