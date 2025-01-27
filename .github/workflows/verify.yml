@@ -76,6 +76,12 @@ jobs:
           cache: true
           cache-dependency-path: backend-go/go.sum
 
+      - name: Generate GraphQL code
+        working-directory: backend-go
+        run: |
+          go install github.com/99designs/gqlgen@latest
+          go generate ./...
+
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
