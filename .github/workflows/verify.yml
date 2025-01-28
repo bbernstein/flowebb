@@ -76,6 +76,12 @@ jobs:
           cache: true
           cache-dependency-path: backend-go/go.sum
 
+      - name: Install dependencies
+        working-directory: backend-go
+        run: |
+          go mod tidy
+          go mod download
+
       - name: Generate GraphQL code
         working-directory: backend-go
         run: |
