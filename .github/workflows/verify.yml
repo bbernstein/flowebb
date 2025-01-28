@@ -87,6 +87,10 @@ jobs:
         working-directory: backend-go
         run: |
           gqlgen generate
+
+      - name: Tidy go code
+        working-directory: backend-go
+        run: |
           go mod tidy
 
       - name: Run golangci-lint
