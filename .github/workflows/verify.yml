@@ -72,9 +72,22 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: '1.23'
           cache: true
           cache-dependency-path: backend-go/go.sum
+
+      - name: Clean and prepare
+        working-directory: backend-go
+        run: |
+          rm -rf graph/generated graph/model
+          go mod download
+          go install github.com/99designs/gqlgen@latest
+
+      - name: Generate GraphQL code
+        working-directory: backend-go
+        run: |
+          gqlgen generate
+          go mod tidy
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
@@ -114,9 +127,22 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: '1.23'
           cache: true
           cache-dependency-path: backend-go/go.sum
+
+      - name: Clean and prepare
+        working-directory: backend-go
+        run: |
+          rm -rf graph/generated graph/model
+          go mod download
+          go install github.com/99designs/gqlgen@latest
+
+      - name: Generate GraphQL code
+        working-directory: backend-go
+        run: |
+          gqlgen generate
+          go mod tidy
 
       - name: Run tests
         working-directory: backend-go
@@ -140,7 +166,7 @@ jobs:
         run: |
           mkdir -p test-results
           # Run tests with coverage and enforce minimum threshold (e.g., 80%)
-          go test -coverprofile=test-results/coverage.out -covermode=atomic -coverpkg=./... ./... | tee test-results/coverage.txt
+          go test -covermode=atomic -coverpkg=$(go list ./... | grep -v graph/generated | grep -v graph/model |tr '\n' ',') ./... -coverprofile=test-results/coverage.out | tee test-results/coverage.txt
           
           # Check if coverage meets threshold
           COVERAGE=$(go tool cover -func=test-results/coverage.out | grep total | awk '{print $3}' | sed 's/%//')

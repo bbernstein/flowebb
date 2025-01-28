@@ -27,8 +27,8 @@ Globals:
         DYNAMODB_ENDPOINT: !If [ IsLocal, "http://dynamodb-local:8000", "" ]
         ALLOWED_ORIGINS: !If [ IsLocal, "http://localhost:3000", "https://app.flowebb.com" ]
         LOG_LEVEL: "debug"
-        CACHE_LRU_SIZE: "1000"
-        CACHE_LRU_TTL_MINUTES: "5"
+        CACHE_TIDE_LRU_SIZE: "1000"
+        CACHE_TIDE_LRU_TTL_MINUTES: "5"
         CACHE_DYNAMO_TTL_DAYS: "1"
         CACHE_STATION_LIST_TTL_DAYS: "1"
         CACHE_ENABLE_LRU: "true"
@@ -40,6 +40,19 @@ Globals:
       AllowOrigin: "'http://localhost:3000'"
 
 Resources:
+  GraphQLFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .aws-sam/build/GraphQLFunction
+      Handler: bootstrap
+      Runtime: provided.al2
+      Events:
+        GraphQLApi:
+          Type: Api
+          Properties:
+            Path: /graphql
+            Method: POST
+
   StationsFunction:
     Type: AWS::Serverless::Function
     Properties:

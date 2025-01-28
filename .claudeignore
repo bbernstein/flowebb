@@ -1,4 +1,3 @@
-# Common ignore patterns
 *.log
 .env
 node_modules/

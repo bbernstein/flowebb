@@ -5,15 +5,35 @@ set -e
 # Start in project root directory
 ROOT_DIR=$(pwd)
 
+# Change to backend directory
+cd backend-go
+
+echo "Installing gqlgen globally..."
+go install github.com/99designs/gqlgen@latest
+
+echo "Generating GraphQL code..."
+# Use the globally installed gqlgen
+if [ ! -f gqlgen.yml ]; then
+    gqlgen init
+fi
+gqlgen generate
+
+
+echo "Running go mod tidy..."
+go mod tidy
+
 # Clean up any existing build artifacts
+rm -rf ../.aws-sam/build
 rm -rf .aws-sam/build
-rm -rf backend-go/.aws-sam/build
 
 # Create root .aws-sam directory structure
-mkdir -p .aws-sam/build/StationsFunction/
-mkdir -p .aws-sam/build/TidesFunction/
+mkdir -p ../.aws-sam/build/GraphQLFunction/
+mkdir -p ../.aws-sam/build/StationsFunction/
+mkdir -p ../.aws-sam/build/TidesFunction/
 
-cd backend-go
+# Build the Lambda functions
+echo "Building graphql function..."
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o ../.aws-sam/build/GraphQLFunction/bootstrap ./cmd/graphql
 
 # Build the stations Lambda
 echo "Building stations function..."
