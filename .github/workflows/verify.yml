@@ -79,7 +79,6 @@ jobs:
       - name: Clean and prepare
         working-directory: backend-go
         run: |
-          rm -f go.sum
           rm -rf graph/generated graph/model
           go mod download
 
