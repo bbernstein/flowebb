@@ -81,11 +81,11 @@ jobs:
         run: |
           rm -rf graph/generated graph/model
           go mod download
+          go install github.com/99designs/gqlgen@latest
 
       - name: Generate GraphQL code
         working-directory: backend-go
         run: |
-          go install github.com/99designs/gqlgen@latest
           gqlgen generate
           go mod tidy
 
