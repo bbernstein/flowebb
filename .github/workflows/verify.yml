@@ -86,12 +86,7 @@ jobs:
       - name: Generate GraphQL code
         working-directory: backend-go
         run: |
-          go mod download
           gqlgen generate
-
-      - name: Tidy go code
-        working-directory: backend-go
-        run: |
           go mod tidy
 
       - name: Run golangci-lint
@@ -136,9 +131,18 @@ jobs:
           cache: true
           cache-dependency-path: backend-go/go.sum
 
+      - name: Clean and prepare
+        working-directory: backend-go
+        run: |
+          rm -rf graph/generated graph/model
+          go mod download
+          go install github.com/99designs/gqlgen@latest
+
       - name: Generate GraphQL code
         working-directory: backend-go
-        run: go run github.com/99designs/gqlgen generate
+        run: |
+          gqlgen generate
+          go mod tidy
 
       - name: Run tests
         working-directory: backend-go
@@ -161,7 +165,7 @@ jobs:
         working-directory: backend-go
         run: |
           mkdir -p test-results
-          go test -covermode=atomic -coverpkg=$(go list ./... | grep -v generated | tr '\n' ',') ./... -coverprofile=test-results/coverage.out | tee test-results/coverage.txt
+          go test -covermode=atomic -coverpkg=$(go list ./... | grep -v graph/generated | grep -v graph/model |tr '\n' ',') ./... -coverprofile=test-results/coverage.out | tee test-results/coverage.txt
 
       - name: Generate test coverage
         working-directory: backend-go
