@@ -72,6 +72,15 @@ jobs:
           cache: true
           cache-dependency-path: backend-go/go.sum
 
+      - name: Generate GraphQL code
+        working-directory: backend-go
+        run: |
+          rm -rf graph/generated graph/model
+          go mod download
+          go install github.com/99designs/gqlgen@latest
+          gqlgen generate
+          go mod tidy
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
