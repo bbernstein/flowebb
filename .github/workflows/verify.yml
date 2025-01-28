@@ -86,6 +86,7 @@ jobs:
       - name: Generate GraphQL code
         working-directory: backend-go
         run: |
+          go mod download
           gqlgen generate
 
       - name: Tidy go code
