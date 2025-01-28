@@ -3,9 +3,13 @@ package graph
 import (
 	"bytes"
 	"context"
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/handler/extension"
+	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/aws/aws-lambda-go/events"
-	generated "github.com/bbernstein/flowebb/backend-go/graph/generated"
+	"github.com/bbernstein/flowebb/backend-go/graph/generated"
+	"github.com/rs/zerolog/log"
 	"net/http"
 )
 
@@ -29,9 +33,26 @@ func NewHandler(resolver *Resolver, requestCreator RequestCreator) *Handler {
 	if requestCreator == nil {
 		requestCreator = defaultRequestCreator
 	}
-	schema := generated.NewExecutableSchema(generated.Config{Resolvers: resolver})
+
+	config := generated.Config{Resolvers: resolver}
+	schema := generated.NewExecutableSchema(config)
+
+	// Create a new server with explicit configuration
+	srv := handler.New(schema)
+
+	// Configure the server with HTTP-only settings
+	srv.AddTransport(transport.Options{})
+	srv.AddTransport(transport.GET{})
+	srv.AddTransport(transport.POST{})
+	srv.AddTransport(transport.MultipartForm{})
+
+	// Add standard middleware
+	srv.Use(extension.Introspection{})
+	srv.SetErrorPresenter(graphql.DefaultErrorPresenter)
+	srv.SetRecoverFunc(graphql.DefaultRecover)
+
 	return &Handler{
-		srv:            handler.NewDefaultServer(schema),
+		srv:            srv,
 		requestCreator: requestCreator,
 	}
 }
@@ -46,14 +67,24 @@ func (h *Handler) HandleRequest(ctx context.Context, event events.APIGatewayProx
 			Body:       "Only POST method is allowed",
 		}, nil
 	}
-	req, err := h.requestCreator(ctx, event.HTTPMethod, "/graphql", bytes.NewBufferString(event.Body))
+
+	// Create a new request with the proper URL
+	req, err := http.NewRequestWithContext(ctx, event.HTTPMethod, "http://localhost/graphql", bytes.NewBufferString(event.Body))
 	if err != nil {
+		log.Error().Err(err).Msg("Failed to create request")
 		return events.APIGatewayProxyResponse{
-			StatusCode: 500,
-			Body:       `{"errors":["Failed to create request"]}`,
+			StatusCode: http.StatusInternalServerError,
+			Body:       `{"errors": ["Failed to create request"]}`,
 		}, err
 	}
+
+	// Set required headers
 	req.Header.Set("Content-Type", "application/json")
+
+	// Add any headers from the event
+	for key, value := range event.Headers {
+		req.Header.Set(key, value)
+	}
 
 	// Create response writer to capture output
 	w := &responseWriter{

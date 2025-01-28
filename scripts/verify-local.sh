@@ -10,6 +10,9 @@ cd ..
 
 # Backend Go checks
 cd backend-go
+go install github.com/99designs/gqlgen@latest
+gqlgen generate
+go mod tidy
 golangci-lint run ./...
 go test -race ./...
 

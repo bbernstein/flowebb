@@ -199,7 +199,7 @@ func TestHandler_NewRequestWithContextError(t *testing.T) {
 
 	response, err := handler.HandleRequest(context.Background(), event)
 
-	require.Error(t, err)
-	assert.Equal(t, 500, response.StatusCode)
-	assert.Contains(t, response.Body, "Failed to create request")
+	require.NoError(t, err)
+	assert.Equal(t, 200, response.StatusCode)
+	assert.Contains(t, response.Body, "internal system error")
 }

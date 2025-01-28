@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/handler/extension"
+	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/bbernstein/flowebb/backend-go/graph"
 	"github.com/bbernstein/flowebb/backend-go/graph/generated"
 	"github.com/bbernstein/flowebb/backend-go/internal/cache"
@@ -16,6 +19,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestGraphQLServer(t *testing.T) {
@@ -42,9 +46,8 @@ func TestGraphQLServer(t *testing.T) {
 	}{
 		{
 			name: "valid query",
-			query: `{
-				"query": "{ __schema { types { name } } }"
-			}`,
+			// The query string needs to be a valid JSON string
+			query:        `{"query":"{ __schema { types { name } } }"}`,
 			env:          "development",
 			expectedCode: http.StatusOK,
 			responseCheck: func(t *testing.T, w *httptest.ResponseRecorder) {
@@ -56,7 +59,7 @@ func TestGraphQLServer(t *testing.T) {
 		},
 		{
 			name:         "invalid query",
-			query:        `{"query": "invalid graphql query"}`,
+			query:        `{"query":"{ invalidField }"}`,
 			env:          "development",
 			expectedCode: http.StatusUnprocessableEntity,
 			responseCheck: func(t *testing.T, w *httptest.ResponseRecorder) {
@@ -85,10 +88,23 @@ func TestGraphQLServer(t *testing.T) {
 
 			// Create test server
 			schema := generated.NewExecutableSchema(generated.Config{Resolvers: resolver})
-			srv := handler.NewDefaultServer(schema)
+			//srv := handler.NewDefaultServer(schema) // Use NewDefaultServer to ensure correct setup
+			srv := handler.New(schema)
 
-			// Create test request
-			req := httptest.NewRequest("POST", "/query", strings.NewReader(tt.query))
+			srv.AddTransport(transport.Websocket{
+				KeepAlivePingInterval: 10 * time.Second,
+			})
+			srv.AddTransport(transport.Options{})
+			srv.AddTransport(transport.POST{})
+			srv.AddTransport(transport.MultipartForm{})
+			srv.Use(extension.Introspection{})
+
+			srv.SetRecoverFunc(graphql.DefaultRecover)
+			srv.SetErrorPresenter(graphql.DefaultErrorPresenter)
+			srv.Use(extension.Introspection{})
+
+			// Create test request with correct path and no spaces in JSON
+			req := httptest.NewRequest("POST", "/graphql", strings.NewReader(tt.query))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
@@ -166,7 +182,10 @@ func TestServerConfiguration(t *testing.T) {
 
 			// Create test server
 			schema := generated.NewExecutableSchema(generated.Config{Resolvers: &graph.Resolver{}})
-			srv := handler.NewDefaultServer(schema)
+			srv := handler.New(schema)
+			srv.SetRecoverFunc(graphql.DefaultRecover)
+			srv.SetErrorPresenter(graphql.DefaultErrorPresenter)
+			srv.Use(extension.Introspection{})
 
 			// Verify server configuration
 			require.NotNil(t, srv)

@@ -11,24 +11,16 @@ cd backend-go
 echo "Installing gqlgen globally..."
 go install github.com/99designs/gqlgen@latest
 
-echo "Installing dependencies..."
-go get golang.org/x/tools/go/packages@latest
-go get golang.org/x/tools/go/ast/astutil@latest
-go get golang.org/x/tools/imports@latest
-go get golang.org/x/text/cases@latest
-go get golang.org/x/text/language@latest
-go get github.com/urfave/cli/v2@latest
-
-echo "Running go mod tidy..."
-go mod tidy
-
 echo "Generating GraphQL code..."
 # Use the globally installed gqlgen
 if [ ! -f gqlgen.yml ]; then
     gqlgen init
 fi
-
 gqlgen generate
+
+
+echo "Running go mod tidy..."
+go mod tidy
 
 # Clean up any existing build artifacts
 rm -rf ../.aws-sam/build
