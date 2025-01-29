@@ -91,21 +91,13 @@ jobs:
         working-directory: backend-go
         run: |
           GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o bootstrap ./cmd/graphql
-          zip stations.zip bootstrap
-          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o bootstrap ./cmd/stations
-          zip stations.zip bootstrap
-          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o bootstrap ./cmd/tides
-          zip tides.zip bootstrap
+          zip graphql.zip bootstrap
 
       - name: Update Lambda Functions
         run: |
           aws lambda update-function-code --function-name "flowebb-graphql-prod" --zip-file fileb://backend-go/graphql.zip
-          aws lambda update-function-code --function-name "flowebb-stations-prod" --zip-file fileb://backend-go/stations.zip
-          aws lambda update-function-code --function-name "flowebb-tides-prod" --zip-file fileb://backend-go/tides.zip
           # Wait for updates to complete
           aws lambda wait function-updated --function-name "flowebb-graphql-prod"
-          aws lambda wait function-updated --function-name "flowebb-stations-prod"
-          aws lambda wait function-updated --function-name "flowebb-tides-prod"
 
   deploy-frontend:
     needs: deploy-infrastructure
