@@ -144,22 +144,10 @@ jobs:
           gqlgen generate
           go mod tidy
 
-      - name: Run tests
-        working-directory: backend-go
-        run: |
-          go test -v ./...
-
       - name: Run race tests
         working-directory: backend-go
         run: |
           go test -race ./...
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-results
-          path: backend-go/test-results/
 
       - name: Generate test coverage
         working-directory: backend-go
@@ -184,10 +172,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: test-results
-          path: |
-            backend-go/test-results/coverage.out
-            backend-go/test-results/coverage.html
-            backend-go/test-results/coverage.txt
+          path: backend-go/test-results/*
 
   verify-terraform:
     needs: lint-terraform
