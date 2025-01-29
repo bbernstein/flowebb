@@ -28,14 +28,79 @@ terraform {
 resource "aws_apigatewayv2_api" "main" {
   name          = "${var.project_name}-api-${var.environment}"
   protocol_type = "HTTP"
+
+  cors_configuration {
+    allow_origins  = ["https://${var.frontend_domain}"]
+    allow_methods  = ["POST", "OPTIONS"]
+    allow_headers  = ["content-type", "authorization"]
+    expose_headers = ["*"]
+    max_age        = 300
+  }
+
   body = jsonencode({
-    openapi = "3.0.0"
+    openapi = "3.0.1"
+    info = {
+      title   = "${var.project_name}-api-${var.environment}"
+      version = "1.0"
+    }
     paths = {
       "/graphql" = {
         post = {
+          responses = {
+            "200" = {
+              description = "Success"
+              content = {
+                "application/json" = {
+                  schema = {
+                    type = "object"
+                  }
+                }
+              }
+            }
+          }
           x-amazon-apigateway-integration = {
-            type = "AWS_PROXY"
-            uri  = aws_lambda_function.graphql.invoke_arn
+            payloadFormatVersion = "2.0"
+            type                 = "AWS_PROXY"
+            httpMethod           = "POST"
+            uri                  = aws_lambda_function.graphql.invoke_arn
+            connectionType       = "INTERNET"
+          }
+        }
+        options = {
+          responses = {
+            "200" = {
+              description = "CORS support"
+              headers = {
+                "Access-Control-Allow-Origin" = {
+                  schema = { type = "string" }
+                }
+                "Access-Control-Allow-Methods" = {
+                  schema = { type = "string" }
+                }
+                "Access-Control-Allow-Headers" = {
+                  schema = { type = "string" }
+                }
+              }
+            }
+          }
+          x-amazon-apigateway-integration = {
+            type = "MOCK"
+            requestTemplates = {
+              "application/json" = "{\"statusCode\": 200}"
+            }
+            responses = {
+              default = {
+                statusCode = "200"
+                responseParameters = {
+                  "method.response.header.Access-Control-Allow-Methods" = "'POST,OPTIONS'"
+                  "method.response.header.Access-Control-Allow-Headers" = "'content-type,authorization'"
+                  "method.response.header.Access-Control-Allow-Origin"  = "'https://${var.frontend_domain}'"
+                }
+                responseTemplates = {
+                  "application/json" = "{}"
+                }
+              }
+            }
           }
         }
       }
@@ -252,13 +317,13 @@ resource "aws_apigatewayv2_integration" "graphql" {
 #   depends_on = [aws_apigatewayv2_integration.stations]
 # }
 
-resource "aws_apigatewayv2_route" "graphql" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "GET /api/stations"
-  target    = "integrations/${aws_apigatewayv2_integration.graphql.id}"
-
-  depends_on = [aws_apigatewayv2_integration.graphql]
-}
+# resource "aws_apigatewayv2_route" "graphql" {
+#   api_id    = aws_apigatewayv2_api.main.id
+#   route_key = "POST /graphql"
+#   target    = "integrations/${aws_apigatewayv2_integration.graphql.id}"
+#
+#   depends_on = [aws_apigatewayv2_integration.graphql]
+# }
 
 # Create API Gateway stage
 resource "aws_apigatewayv2_stage" "main" {
@@ -277,6 +342,7 @@ resource "aws_apigatewayv2_stage" "main" {
       status         = "$context.status"
       protocol       = "$context.protocol"
       responseLength = "$context.responseLength"
+      graphqlErrors  = "$context.error.message"
     })
   }
 
