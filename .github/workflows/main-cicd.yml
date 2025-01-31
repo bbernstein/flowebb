@@ -1,10 +1,11 @@
 name: Deploy Infrastructure and Applications
 
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+# removed as this is now deprecated, we don't want any actions automatically running
+#on:
+#  push:
+#    branches:
+#      - main
+#  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
