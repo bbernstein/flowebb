@@ -1,9 +1,10 @@
 name: Verify
 
-on:
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
+# removed as this is now deprecated, we don't want any actions automatically running
+#on:
+#  pull_request:
+#    branches: [ main ]
+#  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
