@@ -1,4 +1,42 @@
-# FlowEbb Tide Application
+# FlowEbb Tide Application [DEPRECATED]
+
+⚠️ **This repository is deprecated** ⚠️
+
+This project has been split into three separate repositories for better maintainability and separation of concerns:
+
+- [flowebb-go](https://github.com/bbernstein/flowebb-go) - Backend Go services for tide predictions and station data
+- [flowebb-web](https://github.com/bbernstein/flowebb-web) - Next.js frontend web application
+- [flowebb-infra](https://github.com/bbernstein/flowebb-infra) - AWS infrastructure as code using Terraform
+
+## Migration
+
+Please use the new repositories mentioned above for all new development and issues. This repository will remain available for historical reference but will no longer receive updates.
+
+### Repository Purposes
+
+- **flowebb-go**: Contains the Go-based backend services that handle tide predictions and station data. This includes the GraphQL API, NOAA data integration, and caching mechanisms.
+
+- **flowebb-web**: Houses the Next.js frontend application with Material-UI components. This includes all user interface code, state management, and frontend data fetching logic.
+
+- **flowebb-infra**: Contains all AWS infrastructure definitions using Terraform, including Lambda functions, API Gateway, DynamoDB tables, and CloudFront distributions.
+
+## Original Project Overview
+
+FlowEbb is a web application that provides tide information and predictions using NOAA data. The application features:
+
+- Next.js frontend with Material-UI components
+- Go backend running on AWS Lambda
+- GraphQL API
+- Infrastructure managed with Terraform
+- NOAA tide data integration
+- Sophisticated caching system
+- Mobile-friendly responsive design
+
+## Historical Documentation
+
+The rest of this README is preserved for historical reference. For current documentation, please refer to the respective repositories listed above.
+
+---
 
 FlowEbb is a web application that provides tide information and predictions using NOAA data. It consists of a Next.js frontend, Go backend running on AWS Lambda, and infrastructure managed with Terraform.
 
