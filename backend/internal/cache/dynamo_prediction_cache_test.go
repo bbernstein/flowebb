@@ -2,9 +2,11 @@ package cache
 
 import (
 	"context"
-	"github.com/bbernstein/flowebb-go/internal/config"
+	"fmt"
 	"testing"
 	"time"
+
+	"github.com/bbernstein/flowebb-go/internal/config"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -219,6 +221,28 @@ func TestSavePredictionsBatch(t *testing.T) {
 				return &mockDynamoDBClient{}
 			},
 			wantErr: true,
+		},
+		{
+			name: "retry on batch write failure",
+			records: []models.TidePredictionRecord{
+				createTestPredictionRecord(),
+				createTestPredictionRecord(),
+			},
+			mockSetup: func() *mockDynamoDBClient {
+				callCount := 0
+				return &mockDynamoDBClient{
+					batchWriteItemFunc: func(ctx context.Context, params *dynamodb.BatchWriteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.BatchWriteItemOutput, error) {
+						callCount++
+						if callCount == 1 {
+							// First call fails
+							return nil, fmt.Errorf("internal server error")
+						}
+						// Subsequent calls succeed
+						return &dynamodb.BatchWriteItemOutput{}, nil
+					},
+				}
+			},
+			wantErr: false,
 		},
 	}
 

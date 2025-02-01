@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"net/http"
+	"testing"
+
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/bbernstein/flowebb-go/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"net/http"
-	"testing"
 )
 
 type mockTideService struct {
@@ -202,4 +203,51 @@ func TestHandler_NewRequestWithContextError(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 200, response.StatusCode)
 	assert.Contains(t, response.Body, "internal system error")
+}
+
+func TestDefaultRequestCreator(t *testing.T) {
+	ctx := context.Background()
+	method := "POST"
+	url := "http://example.com"
+	body := bytes.NewBuffer([]byte(`{"query": "test"}`))
+
+	req, err := defaultRequestCreator(ctx, method, url, body)
+
+	// Check no error occurred
+	if err != nil {
+		t.Errorf("defaultRequestCreator returned unexpected error: %v", err)
+	}
+
+	// Verify the request was created with correct properties
+	if req.Method != method {
+		t.Errorf("expected method %s, got %s", method, req.Method)
+	}
+
+	if req.URL.String() != url {
+		t.Errorf("expected URL %s, got %s", url, req.URL.String())
+	}
+
+	contentType := req.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %s", contentType)
+	}
+
+	// Verify the context was set
+	if req.Context() != ctx {
+		t.Error("context was not set correctly")
+	}
+}
+
+// You might also want to test the error case with an invalid URL
+func TestDefaultRequestCreatorWithInvalidURL(t *testing.T) {
+	ctx := context.Background()
+	method := "POST"
+	url := "://invalid-url" // Invalid URL format
+	body := bytes.NewBuffer([]byte(`{"query": "test"}`))
+
+	_, err := defaultRequestCreator(ctx, method, url, body)
+
+	if err == nil {
+		t.Error("expected error for invalid URL, got nil")
+	}
 }
