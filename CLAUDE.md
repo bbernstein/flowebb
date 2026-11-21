@@ -100,6 +100,12 @@ platform, and `ci-gate` is the required check. Deploy workflows
 (`deploy-backend.yml`, `deploy-web.yml`, `deploy-infra.yml`) are manual. Never
 dispatch one without the owner's go-ahead.
 
+Infra PRs: a PR that intentionally changes infrastructure makes `infra-plan`
+fail (the plan has changes), so `ci-gate` fails. That is by design. The owner
+reviews the plan summary, merges with admin bypass, then dispatches
+`deploy-infra` from `main`. Do not loop trying to make that check pass. Stop and
+ask the owner. Details are in `infra/CLAUDE.md`.
+
 ## Decisions
 
 Check `docs/decisions/` before changing behavior in an area. Add a record

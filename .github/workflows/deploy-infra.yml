@@ -16,6 +16,10 @@ permissions:
 
 jobs:
   deploy-infrastructure:
+    if: github.ref == 'refs/heads/main'
+    concurrency:
+      group: deploy-infra
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -29,6 +33,14 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Mask account and distribution IDs
+        env:
+          CF_DIST_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
+          echo "::add-mask::$ACCOUNT"
+          if [ -n "$CF_DIST_ID" ]; then echo "::add-mask::$CF_DIST_ID"; fi
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -38,7 +50,17 @@ jobs:
         run: terraform init
 
       - name: Terraform Plan
-        run: terraform plan -out=tfplan
+        run: |
+          # Full output goes to a file, never the public log (it contains ARNs).
+          set +e
+          terraform plan -no-color -out=tfplan > "$RUNNER_TEMP/plan.txt" 2>&1
+          code=$?
+          set -e
+          grep -E '^(Plan:|No changes|Error)' "$RUNNER_TEMP/plan.txt" || true
+          if [ "$code" -ne 0 ]; then
+            grep -A 15 -E '^Error' "$RUNNER_TEMP/plan.txt" || true
+            exit "$code"
+          fi
         env:
           TF_VAR_project_name: ${{ secrets.TF_VAR_PROJECT_NAME }}
           TF_VAR_domain_name: ${{ secrets.TF_VAR_DOMAIN_NAME }}
@@ -46,7 +68,16 @@ jobs:
           TF_VAR_api_domain: ${{ secrets.TF_VAR_API_DOMAIN }}
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
+        run: |
+          set +e
+          terraform apply -no-color -auto-approve tfplan > "$RUNNER_TEMP/apply.txt" 2>&1
+          code=$?
+          set -e
+          grep -E '^(Apply complete|Error)' "$RUNNER_TEMP/apply.txt" || true
+          if [ "$code" -ne 0 ]; then
+            grep -A 15 -E '^Error' "$RUNNER_TEMP/apply.txt" || true
+            exit "$code"
+          fi
 
       - name: Cleanup Terraform Lock
         if: always()  # Run even if previous steps failed

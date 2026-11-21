@@ -11,7 +11,6 @@ env:
   COVERAGE_THRESHOLD: 80
 
 permissions:
-  id-token: write
   contents: read
   pull-requests: read
 
@@ -224,11 +223,17 @@ jobs:
 
   infra-plan:
     needs: changes
+    # Fork PRs have no secrets/OIDC; skipped counts as pass in ci-gate.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.fork != true &&
+      (github.event_name == 'workflow_dispatch' ||
       needs.changes.outputs.infra == 'true' ||
-      needs.changes.outputs.workflows == 'true'
+      needs.changes.outputs.workflows == 'true')
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
 
@@ -238,6 +243,15 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Mask account and distribution IDs
+        if: github.actor != 'dependabot[bot]'
+        env:
+          CF_DIST_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
+          echo "::add-mask::$ACCOUNT"
+          if [ -n "$CF_DIST_ID" ]; then echo "::add-mask::$CF_DIST_ID"; fi
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -258,10 +272,12 @@ jobs:
           TF_VAR_frontend_domain: ${{ secrets.TF_VAR_FRONTEND_DOMAIN }}
           TF_VAR_api_domain: ${{ secrets.TF_VAR_API_DOMAIN }}
         run: |
+          # Full output goes to a file, never the public log (it contains ARNs).
           set +e
-          terraform plan -detailed-exitcode -out=tfplan
+          terraform plan -no-color -detailed-exitcode -out=tfplan > "$RUNNER_TEMP/plan.txt" 2>&1
           code=$?
           set -e
+          grep -E '^(Plan:|No changes|Error)' "$RUNNER_TEMP/plan.txt" || true
           if [ "$code" -eq 0 ]; then
             echo "No infrastructure changes."
           elif [ "$code" -eq 2 ]; then
@@ -269,6 +285,7 @@ jobs:
             exit 1
           else
             echo "::error::terraform plan failed with exit code $code"
+            grep -A 15 -E '^Error' "$RUNNER_TEMP/plan.txt" || true
             exit "$code"
           fi
 
@@ -304,6 +321,12 @@ jobs:
 
       - name: Check repo rules
         run: bash scripts/check-repo-rules.sh
+
+      - name: Test repo rules checker
+        run: bash scripts/check-repo-rules.test.sh
+
+      - name: Test ci-gate
+        run: bash .github/scripts/ci-gate.test.sh
 
   ci-gate:
     needs:
