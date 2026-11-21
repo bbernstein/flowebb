@@ -60,7 +60,8 @@ jobs:
           terraform plan -no-color -out=tfplan > "$RUNNER_TEMP/plan.txt" 2>&1
           code=$?
           set -e
-          grep -E '^(Plan:|No changes|Error)' "$RUNNER_TEMP/plan.txt" || true
+          # Summary plus which resources change; Error lines are printed below on failure.
+          grep -E '^(Plan:|No changes)|^  # .* (will be|must be)' "$RUNNER_TEMP/plan.txt" || true
           if [ "$code" -ne 0 ]; then
             grep -A 15 -E '^Error' "$RUNNER_TEMP/plan.txt" || true
             exit "$code"
@@ -77,7 +78,7 @@ jobs:
           terraform apply -no-color -auto-approve tfplan > "$RUNNER_TEMP/apply.txt" 2>&1
           code=$?
           set -e
-          grep -E '^(Apply complete|Error)' "$RUNNER_TEMP/apply.txt" || true
+          grep -E '^Apply complete' "$RUNNER_TEMP/apply.txt" || true
           if [ "$code" -ne 0 ]; then
             grep -A 15 -E '^Error' "$RUNNER_TEMP/apply.txt" || true
             exit "$code"

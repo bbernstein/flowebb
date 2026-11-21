@@ -277,7 +277,8 @@ jobs:
           terraform plan -no-color -detailed-exitcode -out=tfplan > "$RUNNER_TEMP/plan.txt" 2>&1
           code=$?
           set -e
-          grep -E '^(Plan:|No changes|Error)' "$RUNNER_TEMP/plan.txt" || true
+          # Summary plus which resources change; Error lines are printed below on failure.
+          grep -E '^(Plan:|No changes)|^  # .* (will be|must be)' "$RUNNER_TEMP/plan.txt" || true
           if [ "$code" -eq 0 ]; then
             echo "No infrastructure changes."
           elif [ "$code" -eq 2 ]; then
