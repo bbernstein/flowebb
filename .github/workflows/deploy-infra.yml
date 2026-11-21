@@ -86,10 +86,10 @@ jobs:
           fi
 
       - name: Cleanup Terraform Lock
-        # Only a killed or cancelled run can leave a stale lock behind. Running
-        # unconditionally could delete a lock held by a concurrent PR plan or
-        # another apply, so skip it on success and on ordinary handled failures.
-        if: failure() || cancelled()
+        # Only a cancelled (killed) run can leave a stale lock behind. Terraform
+        # releases its own lock on a handled plan or apply failure, so cleaning up
+        # on failure could delete a lock held by a concurrent PR plan or apply.
+        if: cancelled()
         run: |
           aws dynamodb delete-item \
             --table-name terraform-state-lock \
