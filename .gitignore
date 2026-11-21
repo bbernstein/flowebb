@@ -1,0 +1,17 @@
+# OS / editors
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.claudesync/
+
+# Secrets and local config (commit *.example templates instead)
+.env
+.env.*
+!.env.example
+*.tfvars
+!*.tfvars.example
+
+# Terraform
+*.tfstate*
+.terraform/

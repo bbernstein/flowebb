@@ -9,14 +9,18 @@ FlowEbb Web is a Next.js-based web application that provides real-time tide info
 
 ## Getting Started
 
-1. Clone the repository
+1. Clone the FlowEbb monorepo and enter the web directory:
+```bash
+git clone https://github.com/bbernstein/flowebb
+cd flowebb/web
+```
 2. Install dependencies:
 ```bash
 npm install
 ```
 
 3. Set up environment variables:
-Create a `.env.local` file in the root directory with:
+Create a `.env.local` file in `web/` with:
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8080  # URL for the FlowEbb backend API
 ```

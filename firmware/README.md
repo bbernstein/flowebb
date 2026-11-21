@@ -28,10 +28,10 @@ An ESP32-S3 based tide tracking device that displays tide status using a NeoPixe
 
 ## Setup Instructions
 
-1. Clone this repository:
+1. Clone the FlowEbb monorepo and enter the firmware directory:
    ```bash
-   git clone https://github.com/bbernstein/flowebb-esp
-   cd flowebb-esp
+   git clone https://github.com/bbernstein/flowebb
+   cd flowebb/firmware
    ```
 
 2. Copy and configure WiFi credentials:

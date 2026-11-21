@@ -1,0 +1,10 @@
+{
+  "folders": [
+    { "name": "flowebb (root)", "path": "." },
+    { "name": "backend", "path": "backend" },
+    { "name": "web", "path": "web" },
+    { "name": "infra", "path": "infra" },
+    { "name": "firmware", "path": "firmware" }
+  ],
+  "settings": {}
+}
