@@ -35,6 +35,8 @@ make_repo() {
   echo 'project_name = "example"' >"$dir/infra/terraform/environments/prod/terraform.tfvars.example"
   echo '// template' >"$dir/firmware/src/config/wifi_credentials.h.template"
   echo 'NEXT_PUBLIC_API_URL=http://localhost:8080' >"$dir/web/.env.example"
+  echo 'NEXT_PUBLIC_API_URL=http://localhost:8080' >"$dir/web/.env.local.example"
+  echo 'X=placeholder' >"$dir/.env.template"
   git -C "$dir" add -A
 }
 
@@ -101,6 +103,29 @@ make_repo "$WORK/wifi"
 echo '// creds' >"$WORK/wifi/firmware/src/config/wifi_credentials.h"
 git -C "$WORK/wifi" add -f firmware/src/config/wifi_credentials.h
 expect_fail "tracked wifi_credentials.h" "$WORK/wifi" "firmware/src/config/wifi_credentials.h"
+
+# 7. Tracked backend/.env.
+make_repo "$WORK/dotenv"
+echo 'X=1' >"$WORK/dotenv/backend/.env"
+git -C "$WORK/dotenv" add -f backend/.env
+expect_fail "tracked backend/.env" "$WORK/dotenv" "backend/.env"
+
+# 8. Tracked Terraform plan file.
+make_repo "$WORK/tfplan"
+echo 'plan' >"$WORK/tfplan/infra/terraform/environments/prod/tfplan"
+git -C "$WORK/tfplan" add -f infra/terraform/environments/prod/tfplan
+expect_fail "tracked tfplan" "$WORK/tfplan" "infra/terraform/environments/prod/tfplan"
+
+# 9. Non-ASCII path is reported unquoted (not missed).
+make_repo "$WORK/unicode"
+mkdir -p "$WORK/unicode/web/café"
+echo 'X=1' >"$WORK/unicode/web/café/.env.local"
+git -C "$WORK/unicode" add -f "web/café/.env.local"
+expect_fail "tracked non-ASCII .env path" "$WORK/unicode" "web/café/.env.local"
+
+# 10. Not a git work tree.
+mkdir -p "$WORK/notrepo"
+expect_fail "outside a git work tree" "$WORK/notrepo" "not a git work tree"
 
 echo
 echo "$pass passed, $fail failed"

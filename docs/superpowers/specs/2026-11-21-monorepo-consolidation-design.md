@@ -187,7 +187,7 @@ Findings (2026-11-21, read-only checks):
 - Only **flowebb-orig** holds static AWS keys (`AWS_ACCESS_KEY_ID`,
   `AWS_SECRET_ACCESS_KEY`, set 2024-12-16). The other old repos hold only
   `AWS_ROLE_ARN` (OIDC role, not a credential) and config identifiers.
-- In AWS, the IAM user `bbernstein` has a key created 2024-12-14 that is
+- In AWS, the owner's IAM user has a key created 2024-12-14 that is
   already **Inactive** and was never used — almost certainly the one stored in
   flowebb-orig (secret values can't be read back to confirm). The user's other
   active key (2023) is their personal CLI key and is not touched.

@@ -25,6 +25,8 @@ Read the root `CLAUDE.md` first.
 
 ## Commands
 
+Start from `infra/`. The block works if you paste it as is.
+
 ```bash
 # Lint (from infra/terraform)
 cd terraform
@@ -33,7 +35,7 @@ tflint --init
 tflint --recursive
 
 # Plan (from infra/terraform/environments/prod): read-only and safe
-cd terraform/environments/prod
+cd environments/prod               # relative to infra/terraform
 terraform init
 terraform plan
 ```
