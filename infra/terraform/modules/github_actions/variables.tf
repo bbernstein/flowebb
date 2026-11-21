@@ -18,6 +18,12 @@ variable "github_repos" {
   type        = list(string)
 }
 
+variable "github_oidc_extra_subjects" {
+  description = "Additional OIDC sub patterns (e.g. GitHub's ID-based format repo:<owner>@<owner_id>/<repo>@<repo_id>:*)"
+  type        = list(string)
+  default     = []
+}
+
 variable "frontend_bucket_arn" {
   description = "ARN of the frontend S3 bucket"
   type        = string

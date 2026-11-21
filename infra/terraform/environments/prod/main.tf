@@ -111,10 +111,12 @@ module "edge_networking" {
 module "github_actions" {
   source = "../../modules/github_actions"
 
-  project_name               = var.project_name
-  environment                = var.environment
-  github_org                 = "bbernstein"
-  github_repos               = ["flowebb", "flowebb-web", "flowebb-go", "flowebb-infra"]
+  project_name = var.project_name
+  environment  = var.environment
+  github_org   = "bbernstein"
+  github_repos = ["flowebb", "flowebb-web", "flowebb-go", "flowebb-infra"]
+  # GitHub now sends ID-based OIDC subjects; these are the public owner and repo IDs of bbernstein/flowebb
+  github_oidc_extra_subjects = ["repo:bbernstein@2228270/flowebb@1466765754:*"]
   frontend_bucket_arn        = module.storage.frontend_bucket_arn
   cloudfront_distribution_id = module.edge_networking.cloudfront_distribution_id
 

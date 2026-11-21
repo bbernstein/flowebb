@@ -26,7 +26,10 @@ resource "aws_iam_role" "github_actions" {
         }
         Condition = {
           StringLike = {
-            "token.actions.githubusercontent.com:sub" : formatlist("repo:${var.github_org}/%s:*", var.github_repos)
+            "token.actions.githubusercontent.com:sub" : concat(
+              formatlist("repo:${var.github_org}/%s:*", var.github_repos),
+              var.github_oidc_extra_subjects
+            )
           }
         }
       }
