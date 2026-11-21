@@ -27,8 +27,9 @@ wanted infra, backend and frontend to deploy independently.
 - Infra is applied only by `deploy-infra.yml`.
 - All three use the same OIDC role ([0005](0005-github-actions-uses-oidc-role.md)).
 
-In the monorepo all deploy workflows are dispatched manually
-([0033](0033-monorepo-reunified-2026.md)).
+In the monorepo each deploy workflow runs on push to `main` when files under
+its own platform directory (or the workflow itself) change, and can also be
+dispatched manually ([0033](0033-monorepo-reunified-2026.md)).
 
 ## Alternatives rejected
 

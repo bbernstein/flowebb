@@ -6,14 +6,17 @@ Read the root `CLAUDE.md` first. Run every command below from `firmware/`.
 
 - ESP32-S3 (`esp32-s3-devkitm-1`), Arduino framework via PlatformIO.
 - Libraries: Adafruit NeoPixel, Arduino_JSON (`platformio.ini`).
-- One WS2812 LED on GPIO48. The device wakes, fetches tides over Wi-Fi, updates
-  the LED, and deep-sleeps.
+- One WS2812 LED on GPIO48. The device fetches tides over Wi-Fi, caches them in
+  Preferences, and updates the LED. The main loop stays awake: it does not
+  deep-sleep today, and `DEEP_SLEEP_DURATION` in `config.h` is unused. See
+  [0027](../docs/decisions/0027-deep-sleep-programming-guard.md) before
+  re-enabling deep sleep.
 
 ## Directory map
 
 | Path | Contents |
 |---|---|
-| `src/main.cpp` | setup/loop, sleep cycle |
+| `src/main.cpp` | setup/loop (always-awake loop; wake-cause cache logic) |
 | `src/services/TideService.*` | GraphQL request to the API and response parsing |
 | `src/services/WiFiService.*`, `src/services/TimeService.*` | Wi-Fi connection, NTP time |
 | `src/display/` | LED controller (colors, wave animation) |
@@ -48,8 +51,9 @@ reporting.
 - New logic needs unit tests. Put hardware-independent logic where `pio test`
   can cover it. If something can only be verified on hardware, say so in your
   report.
-- Keep memory and power in mind: deep sleep between checks, and no blocking
-  waits beyond `WIFI_TIMEOUT`.
+- Keep memory and power in mind: Wi-Fi off between updates, and no blocking
+  waits beyond `WIFI_TIMEOUT`. Any return to deep sleep must keep the GPIO0
+  programming-mode guard ([0027](../docs/decisions/0027-deep-sleep-programming-guard.md)).
 - Never flash a device unless the owner asks you to.
 
 ## Never commit secrets or private data

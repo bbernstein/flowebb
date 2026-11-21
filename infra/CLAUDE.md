@@ -16,7 +16,7 @@ Read the root `CLAUDE.md` first.
 | `terraform/modules/compute/` | Lambda functions, API Gateway |
 | `terraform/modules/storage/` | S3 buckets, DynamoDB tables |
 | `terraform/modules/edge_networking/` | CloudFront, DNS records |
-| `terraform/modules/base_networking/` | VPC, subnets |
+| `terraform/modules/base_networking/` | ACM certificate and its DNS validation records |
 | `terraform/modules/iam/` | IAM roles and policies |
 | `terraform/modules/github_actions/` | GitHub OIDC provider and the CI role `flowebb-github-actions-prod` |
 | `terraform/modules/lambda_build/` | Lambda build configuration |

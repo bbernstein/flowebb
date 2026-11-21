@@ -20,9 +20,10 @@ Lambda) span several repos and PRs.
 - Each directory has its own `CLAUDE.md` with platform rules. The root
   `CLAUDE.md` routes requests to a directory and defines the cross-platform
   change protocol.
-- Separate workflows (`verify.yml` with path-filtered jobs, and manually
-  dispatched `deploy-backend.yml`, `deploy-web.yml`, `deploy-infra.yml`) keep
-  deployment independent ([0004](0004-infra-and-app-deploys-are-separate.md)).
+- Separate workflows keep deployment independent: `verify.yml` runs
+  path-filtered checks on PRs, and `deploy-backend.yml`, `deploy-web.yml` and
+  `deploy-infra.yml` each run on push to `main` filtered to their own
+  directory, or by manual dispatch ([0004](0004-infra-and-app-deploys-are-separate.md)).
 - Do not split again for AI-context reasons. Per-directory `CLAUDE.md` files
   keep context focused.
 
