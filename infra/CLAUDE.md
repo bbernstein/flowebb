@@ -49,7 +49,7 @@ infra PR and fails if the plan shows changes, so the owner must review them.
 - **Never run `terraform apply` (or `destroy`, `import`, `state rm/mv`, or
   `force-unlock`) locally.** Apply happens only through
   `.github/workflows/deploy-infra.yml`, which runs on push to `main` when
-  `infra/**` changes (so merging an infra PR applies it), or by manual dispatch
+  `infra/**` or its own workflow file changes (so merging an infra PR applies it), or by manual dispatch
   from `main` with the owner's approval.
 - `plan`, `fmt`, `validate`, and `tflint` are safe.
 - State is remote. Never commit state or copy it locally.

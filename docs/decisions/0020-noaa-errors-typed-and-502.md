@@ -21,8 +21,8 @@ object in the body.
   as success without checking the body.
 - If the prediction fetch fails, the error is logged and the request
   interpolates from extremes where it can, rather than failing outright.
-- `backend/cmd/tides/main.go` maps `NoaaAPIError` (via `errors.As`) to 502 Bad
-  Gateway and everything else to 500. The web app showed a specific message on
+- `backend/cmd/tides/main.go` uses `errors.As` to map `InvalidRangeError` to
+  400 Bad Request, `NoaaAPIError` to 502 Bad Gateway, and anything else to 500. The web app showed a specific message on
   502.
 - Tests cover the 200-with-error case with a mock NOAA server.
 

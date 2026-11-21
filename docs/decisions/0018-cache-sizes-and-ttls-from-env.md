@@ -28,6 +28,11 @@ tables in Terraform. The owner wanted one place to tune every cache parameter.
 `cacheValidityDays = 7` constant used when saving a single record, while batch
 saves use the configured TTL. Check which path applies before changing TTLs.
 
+**Note:** Terraform sets `CACHE_GRAPHQL_LRU_TTL_MINUTES` on the Lambda
+(`infra/terraform/modules/compute/main.tf`), but the code reads
+`CACHE_GRAPHQL_TTL_MINUTES` (`backend/internal/config/cache.go`). Production
+therefore ignores the Terraform value and uses the 60-minute default.
+
 ## Alternatives rejected
 
 - Hard-coded constants per cache: cannot be tuned without a rebuild.

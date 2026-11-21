@@ -12,10 +12,12 @@ run once left a stale lock that blocked every later plan.
 
 ## Decision
 
-- State is in an S3 bucket with a DynamoDB lock table, configured in the
-  backend block of `infra/terraform/environments/prod/main.tf` (key
-  `prod/terraform.tfstate`). Both are created once by
-  `infra/terraform/bootstrap/`. The CI role can access both.
+- State is in an S3 bucket with a DynamoDB lock table (`terraform-state-lock`),
+  configured in the backend block of
+  `infra/terraform/environments/prod/main.tf` (key `prod/terraform.tfstate`).
+  The CI role can access both.
+- `infra/terraform/bootstrap/` is the one-time setup for the state storage,
+  but see the Note: its bucket name does not match the backend's.
 - The apply job in `.github/workflows/deploy-infra.yml` uses
   `concurrency: deploy-infra` with `cancel-in-progress: false`, so two applies
   never overlap and a new run waits instead of killing one in progress.
@@ -33,6 +35,12 @@ run once left a stale lock that blocked every later plan.
 version ran it `if: always()`. Both were narrowed to `if: cancelled()` on
 2026-11-21. Keep the cleanup condition and the non-cancelling concurrency group
 together.
+
+**Note:** `infra/terraform/bootstrap/main.tf` creates a bucket named
+`flowebb-terraform-state`, but the prod backend uses
+`flowebb-terraform-state-bucket`. Only the lock table name matches. The bucket
+in use was presumably created another way; confirm before re-running bootstrap
+or relying on it to recreate state storage.
 
 ## Alternatives rejected
 

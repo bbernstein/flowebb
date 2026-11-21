@@ -28,8 +28,9 @@ ACM certificate and Lambda build formed another loop.
   `variables.tf`, and a placeholder `terraform.tfvars.example`; the real tfvars
   file is gitignored).
 - The Route53 hosted zone has its own root, `infra/terraform/global/route53/`,
-  because DNS is long-lived and shared. The state bucket and lock table are
-  created once from `infra/terraform/bootstrap/` (see
+  because DNS is long-lived and shared. `infra/terraform/bootstrap/` is the
+  one-time setup for remote state, but its bucket name does not match the one
+  the prod backend uses (see the Note in
   [0016](0016-remote-terraform-state-with-lock.md)).
 - Domain and project names are variables that CI supplies, not hard-coded
   values.

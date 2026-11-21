@@ -70,7 +70,7 @@ Check [`docs/decisions/`](../docs/decisions/README.md) before changing behavior 
 Key decisions:
 
 - [0026: The device is a thin GraphQL client and depends on fixed tide fields](../docs/decisions/0026-device-graphql-contract.md)
-- [0031: The LED shows tide direction and progress as a red-green blend with a faint blue wave](../docs/decisions/0031-led-color-semantics.md)
+- [0031: The LED color tracks tide level, red at low water and green at high, with a faint blue wave](../docs/decisions/0031-led-color-semantics.md)
 - [0027: Deep sleep must keep a programming-mode escape (GPIO0)](../docs/decisions/0027-deep-sleep-programming-guard.md)
 - [0022: Firmware is split into config, models, services, storage, display and utils](../docs/decisions/0022-firmware-module-layout.md)
 - [0032: Battery power: 2xAA through a boost converter, sized by duty cycle](../docs/decisions/0032-battery-power-budget.md)

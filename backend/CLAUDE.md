@@ -56,7 +56,7 @@ docker compose up -d
 ```
 
 Deploy: `.github/workflows/deploy-backend.yml` runs on push to `main` when
-`backend/**` changes, and can also be dispatched manually from `main`. Only
+`backend/**` or its own workflow file changes, and can also be dispatched manually from `main`. Only
 dispatch it with the owner's go-ahead. Do not deploy from your machine.
 
 ## Rules

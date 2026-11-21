@@ -38,7 +38,7 @@ API URL: set `NEXT_PUBLIC_API_URL` in `.env.local` (gitignored). Use
 for production (the client appends `/graphql`).
 
 Deploy: `.github/workflows/deploy-web.yml` (runs `scripts/deploy-frontend.sh prod`)
-runs on push to `main` when `web/**` changes, and can also be dispatched
+runs on push to `main` when `web/**` or its own workflow file changes, and can also be dispatched
 manually from `main`. Only dispatch it with the owner's go-ahead.
 
 ## Rules
