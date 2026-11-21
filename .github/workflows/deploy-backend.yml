@@ -46,6 +46,11 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Mask account ID
+        run: |
+          ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
+          echo "::add-mask::$ACCOUNT"
+
       - name: Build Backend
         run: |
           GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o bootstrap ./cmd/graphql
@@ -53,6 +58,7 @@ jobs:
 
       - name: Update Lambda Functions
         run: |
-          aws lambda update-function-code --function-name "flowebb-graphql-prod" --zip-file fileb://graphql.zip
+          aws lambda update-function-code --function-name "flowebb-graphql-prod" --zip-file fileb://graphql.zip \
+            --query 'LastUpdateStatus' --output text
           # Wait for updates to complete
           aws lambda wait function-updated --function-name "flowebb-graphql-prod"
