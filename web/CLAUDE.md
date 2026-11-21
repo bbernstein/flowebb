@@ -34,8 +34,8 @@ npm run build       # static export to out/
 ```
 
 API URL: set `NEXT_PUBLIC_API_URL` in `.env.local` (gitignored). Use
-`http://localhost:8080` for a local backend or `https://api.flowebb.com/graphql`
-for production.
+`http://localhost:8080` for a local backend or `https://api.flowebb.com`
+for production (the client appends `/graphql`).
 
 Deploy: `.github/workflows/deploy-web.yml` (runs `scripts/deploy-frontend.sh prod`),
 manually dispatched. Only dispatch it with the owner's go-ahead.

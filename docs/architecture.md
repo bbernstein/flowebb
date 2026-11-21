@@ -46,8 +46,9 @@ in the field update on their own schedules. See the root `CLAUDE.md`.
   S3 buckets, CloudFront, Route53, IAM, and the GitHub OIDC provider.
 - CI authenticates to AWS through GitHub OIDC by assuming the role
   `flowebb-github-actions-prod`. No long-lived AWS keys are stored in GitHub.
-  The repos allowed to assume it are listed in `github_repos` in
-  `infra/terraform/environments/prod/main.tf`.
+  The repos allowed to assume it are listed in the `github_repos` variable and
+  `github_oidc_extra_subjects` in `infra/terraform/environments/prod/main.tf`
+  (`bbernstein/flowebb` uses the ID-based subject in the latter; never remove it).
 - Deploys are manual (`workflow_dispatch`) for now:
   - `deploy-infra.yml` runs `terraform apply`.
   - `deploy-backend.yml` builds `cmd/graphql` and updates Lambda `flowebb-graphql-prod`.

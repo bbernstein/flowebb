@@ -51,9 +51,17 @@ infra PR and fails if the plan shows changes, so the owner must review them.
   `.github/workflows/deploy-infra.yml`, dispatched with the owner's approval.
 - `plan`, `fmt`, `validate`, and `tflint` are safe.
 - State is remote. Never commit state or copy it locally.
-- The GitHub OIDC trust list is `github_repos` in
-  `terraform/environments/prod/main.tf`. Changing it changes which repos can
-  deploy to AWS, so get the owner's approval first.
+- The GitHub OIDC trust list is the `github_repos` variable plus
+  `github_oidc_extra_subjects`, both in `terraform/environments/prod/main.tf`.
+  Changing either changes which repos can deploy to AWS, so get the owner's
+  approval first. `bbernstein/flowebb` authenticates through GitHub's ID-based
+  subject in `github_oidc_extra_subjects`. Never remove that entry, even when
+  trimming `github_repos`.
+- **Merging an infra PR.** A PR that intentionally changes infrastructure makes
+  `infra-plan` fail (the plan has changes), so `ci-gate` fails. This is by
+  design. The owner reviews the plan summary in the `infra-plan` log, merges with
+  admin bypass, then dispatches `deploy-infra` from `main`. Agents must not loop
+  trying to make that check pass. Stop and ask the owner.
 - Renaming or removing a resource that backend, web, or CI depends on (Lambda
   name `flowebb-graphql-prod`, buckets, DynamoDB tables, the CloudFront
   distribution) is a cross-platform change. Check `.github/workflows/` and

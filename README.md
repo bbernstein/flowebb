@@ -39,7 +39,7 @@ Open `flowebb.code-workspace` in VS Code for one folder per platform.
 
 ## History
 
-Each platform directory was imported from the archived `flowebb-go`,
-`flowebb-web`, `flowebb-infra`, and `flowebb-esp` repos with full history, so
+Each platform directory was imported from the original `flowebb-go`,
+`flowebb-web`, `flowebb-infra`, and `flowebb-esp` repos (to be archived) with full history, so
 `git log` and `git blame` work on every file.
 
