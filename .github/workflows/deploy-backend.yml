@@ -1,9 +1,7 @@
-name: Deploy Infrastructure and Applications
+name: Deploy Backend
 
+# push trigger re-enabled in follow-up after cutover
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 env:
@@ -16,21 +14,24 @@ permissions:
 jobs:
   deploy-backend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version-file: backend/go.mod
           cache: true
-          cache-dependency-path: go.sum
+          cache-dependency-path: backend/go.sum
 
       - name: Generate GraphQL code
         run: |
           rm -rf graph/generated graph/model
           go mod download
-          go install github.com/99designs/gqlgen@latest
+          go install github.com/99designs/gqlgen@v0.17.64
           gqlgen generate
           go mod tidy
 

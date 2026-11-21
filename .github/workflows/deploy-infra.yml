@@ -1,9 +1,7 @@
-name: Deploy Infrastructure and Applications
+name: Deploy Infrastructure
 
+# push trigger re-enabled in follow-up after cutover
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 env:
@@ -19,8 +17,11 @@ permissions:
 jobs:
   deploy-infrastructure:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform/environments/prod
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -34,11 +35,9 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Terraform Init
-        working-directory: terraform/environments/prod
         run: terraform init
 
       - name: Terraform Plan
-        working-directory: terraform/environments/prod
         run: terraform plan -out=tfplan
         env:
           TF_VAR_project_name: ${{ secrets.TF_VAR_PROJECT_NAME }}
@@ -47,7 +46,6 @@ jobs:
           TF_VAR_api_domain: ${{ secrets.TF_VAR_API_DOMAIN }}
 
       - name: Terraform Apply
-        working-directory: terraform/environments/prod
         run: terraform apply -auto-approve tfplan
 
       - name: Cleanup Terraform Lock

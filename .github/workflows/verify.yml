@@ -1,0 +1,320 @@
+name: Verify
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  TF_VERSION: 1.5.0
+  COVERAGE_THRESHOLD: 80
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      web: ${{ steps.filter.outputs.web }}
+      infra: ${{ steps.filter.outputs.infra }}
+      firmware: ${{ steps.filter.outputs.firmware }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            web:
+              - 'web/**'
+            infra:
+              - 'infra/**'
+            firmware:
+              - 'firmware/**'
+            workflows:
+              - '.github/workflows/**'
+              - '.github/scripts/**'
+              - 'scripts/**'
+
+  backend-lint:
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.backend == 'true' ||
+      needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Generate GraphQL code
+        run: |
+          rm -rf graph/generated graph/model
+          go mod download
+          go install github.com/99designs/gqlgen@v0.17.64
+          gqlgen generate
+          go mod tidy
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.64.8
+          working-directory: backend
+          args: --timeout=5m
+          skip-cache: true
+
+  backend-test:
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.backend == 'true' ||
+      needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Generate GraphQL code
+        run: |
+          rm -rf graph/generated graph/model
+          go mod download
+          go install github.com/99designs/gqlgen@v0.17.64
+          gqlgen generate
+          go mod tidy
+
+      - name: Run race tests
+        run: |
+          go test -race ./...
+
+      - name: Generate test coverage
+        run: |
+          mkdir -p test-results
+          # Run tests with coverage and enforce minimum threshold (e.g., 80%)
+          go test -covermode=atomic -coverpkg="$(go list ./... | grep -v graph/generated | grep -v graph/model | tr '\n' ',')" ./... -coverprofile=test-results/coverage.out | tee test-results/coverage.txt
+
+          # Check if coverage meets threshold
+          COVERAGE=$(go tool cover -func=test-results/coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          THRESHOLD=$COVERAGE_THRESHOLD
+          if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
+            echo "Code coverage $COVERAGE% is below threshold of $THRESHOLD%"
+            exit 1
+          fi
+
+          # Generate HTML report
+          go tool cover -html=test-results/coverage.out -o test-results/coverage.html
+
+      - name: Upload coverage results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: backend/test-results/*
+
+  web-test:
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.web == 'true' ||
+      needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Test frontend
+        run: npm run test
+
+  web-build:
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.web == 'true' ||
+      needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+  infra-lint:
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.infra == 'true' ||
+      needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        working-directory: infra/terraform
+        run: terraform fmt -check -recursive
+
+      - name: tflint
+        uses: terraform-linters/setup-tflint@v3
+        with:
+          tflint_version: v0.44.1
+
+      - name: Run tflint
+        working-directory: infra/terraform
+        run: |
+          tflint --init
+          tflint --recursive
+
+  infra-plan:
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.infra == 'true' ||
+      needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        if: github.actor != 'dependabot[bot]'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          # The wrapper would swallow the real exit code of -detailed-exitcode
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: infra/terraform/environments/prod
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: infra/terraform/environments/prod
+        env:
+          TF_VAR_project_name: ${{ secrets.TF_VAR_PROJECT_NAME }}
+          TF_VAR_domain_name: ${{ secrets.TF_VAR_DOMAIN_NAME }}
+          TF_VAR_frontend_domain: ${{ secrets.TF_VAR_FRONTEND_DOMAIN }}
+          TF_VAR_api_domain: ${{ secrets.TF_VAR_API_DOMAIN }}
+        run: |
+          set +e
+          terraform plan -detailed-exitcode -out=tfplan
+          code=$?
+          set -e
+          if [ "$code" -eq 0 ]; then
+            echo "No infrastructure changes."
+          elif [ "$code" -eq 2 ]; then
+            echo "::error::Terraform plan has changes — owner review required"
+            exit 1
+          else
+            echo "::error::terraform plan failed with exit code $code"
+            exit "$code"
+          fi
+
+      - name: Cleanup Terraform Lock
+        if: always()
+        run: |
+          aws dynamodb delete-item \
+            --table-name terraform-state-lock \
+            --key "{\"LockID\": {\"S\": \"flowebb-terraform-state-bucket/prod/terraform.tfstate\"}}"
+        continue-on-error: true
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  repo-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check repo rules
+        run: bash scripts/check-repo-rules.sh
+
+  ci-gate:
+    needs:
+      - changes
+      - backend-lint
+      - backend-test
+      - web-test
+      - web-build
+      - infra-lint
+      - infra-plan
+      - secrets-scan
+      - repo-rules
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Evaluate results
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: printf '%s' "$NEEDS_JSON" | bash .github/scripts/ci-gate.sh

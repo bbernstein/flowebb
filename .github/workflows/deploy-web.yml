@@ -1,9 +1,7 @@
 name: Deploy Web Application
 
+# push trigger re-enabled in follow-up after cutover
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 env:
@@ -16,15 +14,18 @@ permissions:
 jobs:
   deploy-frontend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Use Node.js 22.x
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'npm'
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: web/package-lock.json
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
