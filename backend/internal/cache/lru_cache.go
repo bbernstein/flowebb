@@ -3,8 +3,8 @@ package cache
 import (
 	"context"
 	"fmt"
-	"github.com/bbernstein/flowebb-go/internal/config"
-	"github.com/bbernstein/flowebb-go/internal/models"
+	"github.com/bbernstein/flowebb/backend/internal/config"
+	"github.com/bbernstein/flowebb/backend/internal/models"
 	"github.com/hashicorp/golang-lru/v2"
 	"sync"
 	"time"

@@ -1,8 +1,8 @@
 package cache
 
 import (
-	"github.com/bbernstein/flowebb-go/internal/config"
-	"github.com/bbernstein/flowebb-go/internal/models"
+	"github.com/bbernstein/flowebb/backend/internal/config"
+	"github.com/bbernstein/flowebb/backend/internal/models"
 	"sync"
 	"time"
 )

@@ -3,8 +3,8 @@ package cache
 import (
 	"context"
 	"fmt"
-	"github.com/bbernstein/flowebb-go/internal/config"
-	"github.com/bbernstein/flowebb-go/internal/models"
+	"github.com/bbernstein/flowebb/backend/internal/config"
+	"github.com/bbernstein/flowebb/backend/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sync"

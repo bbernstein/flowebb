@@ -1,4 +1,4 @@
-module github.com/bbernstein/flowebb-go
+module github.com/bbernstein/flowebb/backend
 
 go 1.23.4
 

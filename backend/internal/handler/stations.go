@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/bbernstein/flowebb-go/internal/api"
-	"github.com/bbernstein/flowebb-go/internal/models"
+	"github.com/bbernstein/flowebb/backend/internal/api"
+	"github.com/bbernstein/flowebb/backend/internal/models"
 	"net/http"
 	"strconv"
 )

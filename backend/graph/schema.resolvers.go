@@ -8,8 +8,8 @@ import (
 	"context"
 	"fmt"
 
-	generated1 "github.com/bbernstein/flowebb-go/graph/generated"
-	"github.com/bbernstein/flowebb-go/graph/model"
+	generated1 "github.com/bbernstein/flowebb/backend/graph/generated"
+	"github.com/bbernstein/flowebb/backend/graph/model"
 )
 
 // Stations is the resolver for the stations field.

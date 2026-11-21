@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/bbernstein/flowebb-go/internal/cache"
-	"github.com/bbernstein/flowebb-go/internal/models"
-	"github.com/bbernstein/flowebb-go/pkg/http/client"
+	"github.com/bbernstein/flowebb/backend/internal/cache"
+	"github.com/bbernstein/flowebb/backend/internal/models"
+	"github.com/bbernstein/flowebb/backend/pkg/http/client"
 )
 
 type FinderFactory interface {
