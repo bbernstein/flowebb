@@ -48,7 +48,9 @@ infra PR and fails if the plan shows changes, so the owner must review them.
 
 - **Never run `terraform apply` (or `destroy`, `import`, `state rm/mv`, or
   `force-unlock`) locally.** Apply happens only through
-  `.github/workflows/deploy-infra.yml`, dispatched with the owner's approval.
+  `.github/workflows/deploy-infra.yml`, which runs on push to `main` when
+  `infra/**` changes (so merging an infra PR applies it), or by manual dispatch
+  from `main` with the owner's approval.
 - `plan`, `fmt`, `validate`, and `tflint` are safe.
 - State is remote. Never commit state or copy it locally.
 - The GitHub OIDC trust list is the `github_repos` variable plus
@@ -59,8 +61,8 @@ infra PR and fails if the plan shows changes, so the owner must review them.
   trimming `github_repos`.
 - **Merging an infra PR.** A PR that intentionally changes infrastructure makes
   `infra-plan` fail (the plan has changes), so `ci-gate` fails. This is by
-  design. The owner reviews the plan summary in the `infra-plan` log, merges with
-  admin bypass, then dispatches `deploy-infra` from `main`. Agents must not loop
+  design. The owner reviews the plan summary in the `infra-plan` log and merges
+  with admin bypass, and the push to `main` runs `deploy-infra`. Agents must not loop
   trying to make that check pass. Stop and ask the owner.
 - Renaming or removing a resource that backend, web, or CI depends on (Lambda
   name `flowebb-graphql-prod`, buckets, DynamoDB tables, the CloudFront

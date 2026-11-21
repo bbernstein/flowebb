@@ -37,8 +37,9 @@ API URL: set `NEXT_PUBLIC_API_URL` in `.env.local` (gitignored). Use
 `http://localhost:8080` for a local backend or `https://api.flowebb.com`
 for production (the client appends `/graphql`).
 
-Deploy: `.github/workflows/deploy-web.yml` (runs `scripts/deploy-frontend.sh prod`),
-manually dispatched. Only dispatch it with the owner's go-ahead.
+Deploy: `.github/workflows/deploy-web.yml` (runs `scripts/deploy-frontend.sh prod`)
+runs on push to `main` when `web/**` changes, and can also be dispatched
+manually from `main`. Only dispatch it with the owner's go-ahead.
 
 ## Rules
 

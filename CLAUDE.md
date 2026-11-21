@@ -102,13 +102,16 @@ Run each from its platform directory. Full details are in each platform's
 
 CI is `.github/workflows/verify.yml`. It runs path-filtered jobs per
 platform, and `ci-gate` is the required check. Deploy workflows
-(`deploy-backend.yml`, `deploy-web.yml`, `deploy-infra.yml`) are manual. Never
-dispatch one without the owner's go-ahead.
+(`deploy-backend.yml`, `deploy-web.yml`, `deploy-infra.yml`) run automatically
+on push to `main`, each filtered to its own platform directory (and its own
+workflow file), and can also be dispatched manually from `main`. Merging a PR
+therefore deploys the platforms it touched. Never dispatch one without the
+owner's go-ahead.
 
 Infra PRs: a PR that intentionally changes infrastructure makes `infra-plan`
 fail (the plan has changes), so `ci-gate` fails. That is by design. The owner
-reviews the plan summary, merges with admin bypass, then dispatches
-`deploy-infra` from `main`. Do not loop trying to make that check pass. Stop and
+reviews the plan summary and merges with admin bypass, and the push to `main`
+runs `deploy-infra`. Do not loop trying to make that check pass. Stop and
 ask the owner. Details are in `infra/CLAUDE.md`.
 
 ## Decisions
