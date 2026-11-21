@@ -77,4 +77,12 @@ The root rule applies in full. Here: never commit `terraform.tfvars` (only
 
 ## Decisions
 
-See `docs/decisions/` (records will be added there).
+Check [`docs/decisions/`](../docs/decisions/README.md) before changing behavior here.
+
+Key decisions:
+
+- [0004: Infra and application deploys are separate; Terraform ignores Lambda code](../docs/decisions/0004-infra-and-app-deploys-are-separate.md)
+- [0003: Terraform layout: per-concern modules, one prod root, no cycles](../docs/decisions/0003-terraform-modules-and-single-prod-root.md)
+- [0005: GitHub Actions assumes an AWS role through OIDC, never static keys](../docs/decisions/0005-github-actions-uses-oidc-role.md)
+- [0034: Trust GitHub's ID-based OIDC subject for the monorepo, applied once locally with Terraform 1.5.0](../docs/decisions/0034-oidc-id-based-subject.md)
+- [0016: Remote Terraform state in S3 with a DynamoDB lock table](../docs/decisions/0016-remote-terraform-state-with-lock.md)

@@ -61,4 +61,14 @@ distribution IDs. Those come from GitHub secrets.
 
 ## Decisions
 
-See `docs/decisions/` (records will be added there).
+Check [`docs/decisions/`](../docs/decisions/README.md) before changing behavior here.
+
+Key decisions:
+
+- [0001: Static site on S3 and CloudFront, API on API Gateway and Lambda](../docs/decisions/0001-static-site-and-api-on-separate-domains.md)
+- [0011: The web app shows every time in the station's local zone](../docs/decisions/0011-web-displays-station-local-time.md)
+- [0017: Remember the last location and station in browser storage](../docs/decisions/0017-persist-last-location-and-station.md)
+- [0029: Picking a location always selects the nearest station](../docs/decisions/0029-auto-select-nearest-station.md)
+- [0007: Map waits for the stored location and fits bounds to the click plus stations](../docs/decisions/0007-map-loading-and-bounds.md)
+- [0012: Highcharts for the tide chart; accessibility module currently disabled](../docs/decisions/0012-highcharts-tide-chart-accessibility.md)
+- [0006: Use Material UI for web components, not Tailwind or shadcn/ui](../docs/decisions/0006-mui-component-library.md)

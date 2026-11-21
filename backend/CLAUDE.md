@@ -79,4 +79,15 @@ data), `.env*`, AWS credentials, or `test-results/` output that contains real da
 
 ## Decisions
 
-See `docs/decisions/` (records will be added there).
+Check [`docs/decisions/`](../docs/decisions/README.md) before changing behavior here.
+
+Key decisions:
+
+- [0025: Serve the API as one GraphQL Lambda built with gqlgen](../docs/decisions/0025-graphql-api-with-gqlgen.md)
+- [0009: Cache predictions per station-day in DynamoDB behind an in-memory LRU](../docs/decisions/0009-prediction-cache-per-station-day.md)
+- [0002: Cache the full NOAA station list as one S3 object](../docs/decisions/0002-station-list-cached-as-one-s3-object.md)
+- [0018: Cache sizes and TTLs come from CACHE_* environment variables](../docs/decisions/0018-cache-sizes-and-ttls-from-env.md)
+- [0015: The backend handles all tide times in the station's local zone](../docs/decisions/0015-backend-times-in-station-local-zone.md)
+- [0008: Use NOAA's predictions, not our own harmonic tide calculation](../docs/decisions/0008-noaa-predictions-not-harmonic-calculation.md)
+- [0020: NOAA failures become typed errors, and must not pass as empty data](../docs/decisions/0020-noaa-errors-typed-and-502.md)
+- [0028: Backend tests: 80% coverage without generated code, injected dependencies, no real NOAA or AWS](../docs/decisions/0028-backend-testing-and-coverage.md)

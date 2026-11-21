@@ -116,6 +116,15 @@ ask the owner. Details are in `infra/CLAUDE.md`.
 Check `docs/decisions/` before changing behavior in an area. Add a record
 there when you make a non-obvious choice.
 
+Key decisions:
+
+- [0033: Return to a single monorepo now that Claude Code reads files on demand](docs/decisions/0033-monorepo-reunified-2026.md)
+- [0001: Static site on S3 and CloudFront, API on API Gateway and Lambda](docs/decisions/0001-static-site-and-api-on-separate-domains.md)
+- [0025: Serve the API as one GraphQL Lambda built with gqlgen](docs/decisions/0025-graphql-api-with-gqlgen.md)
+- [0026: The device is a thin GraphQL client and depends on fixed tide fields](docs/decisions/0026-device-graphql-contract.md)
+- [0004: Infra and application deploys are separate; Terraform ignores Lambda code](docs/decisions/0004-infra-and-app-deploys-are-separate.md)
+- [0015: The backend handles all tide times in the station's local zone](docs/decisions/0015-backend-times-in-station-local-zone.md)
+
 ## Adding a platform
 
 Follow `docs/adding-a-platform.md`.
