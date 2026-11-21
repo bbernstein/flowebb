@@ -1,0 +1,28 @@
+# OS / editors
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.claudesync/
+
+# Secrets and local config (commit *.example / *.template instead)
+.env*
+!.env*.example
+!.env*.template
+*.tfvars
+!*.tfvars.example
+
+# Terraform
+*.tfstate*
+.terraform/
+
+# Sensitive / local-only files
+tfplan
+*.tfplan
+*.pem
+*.key
+*.p12
+id_rsa*
+conversations*.json
+.claude/settings.local.json
+CLAUDE.local.md

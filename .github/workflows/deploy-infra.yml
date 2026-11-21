@@ -1,0 +1,88 @@
+name: Deploy Infrastructure
+
+# push trigger re-enabled in follow-up after cutover
+on:
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  TF_VERSION: 1.5.0
+  STATE_BUCKET: "flowebb-terraform-state-bucket"
+  STATE_KEY: "prod/terraform.tfstate"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-infrastructure:
+    if: github.ref == 'refs/heads/main'
+    concurrency:
+      group: deploy-infra
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform/environments/prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Mask account and distribution IDs
+        env:
+          CF_DIST_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
+          echo "::add-mask::$ACCOUNT"
+          if [ -n "$CF_DIST_ID" ]; then echo "::add-mask::$CF_DIST_ID"; fi
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: |
+          # Full output goes to a file, never the public log (it contains ARNs).
+          set +e
+          terraform plan -no-color -out=tfplan > "$RUNNER_TEMP/plan.txt" 2>&1
+          code=$?
+          set -e
+          grep -E '^(Plan:|No changes|Error)' "$RUNNER_TEMP/plan.txt" || true
+          if [ "$code" -ne 0 ]; then
+            grep -A 15 -E '^Error' "$RUNNER_TEMP/plan.txt" || true
+            exit "$code"
+          fi
+        env:
+          TF_VAR_project_name: ${{ secrets.TF_VAR_PROJECT_NAME }}
+          TF_VAR_domain_name: ${{ secrets.TF_VAR_DOMAIN_NAME }}
+          TF_VAR_frontend_domain: ${{ secrets.TF_VAR_FRONTEND_DOMAIN }}
+          TF_VAR_api_domain: ${{ secrets.TF_VAR_API_DOMAIN }}
+
+      - name: Terraform Apply
+        run: |
+          set +e
+          terraform apply -no-color -auto-approve tfplan > "$RUNNER_TEMP/apply.txt" 2>&1
+          code=$?
+          set -e
+          grep -E '^(Apply complete|Error)' "$RUNNER_TEMP/apply.txt" || true
+          if [ "$code" -ne 0 ]; then
+            grep -A 15 -E '^Error' "$RUNNER_TEMP/apply.txt" || true
+            exit "$code"
+          fi
+
+      - name: Cleanup Terraform Lock
+        if: always()  # Run even if previous steps failed
+        run: |
+          aws dynamodb delete-item \
+            --table-name terraform-state-lock \
+            --key "{\"LockID\": {\"S\": \"${{ env.STATE_BUCKET }}/${{ env.STATE_KEY }}\"}}"
+        continue-on-error: true
