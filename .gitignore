@@ -5,10 +5,8 @@
 !.vscode/extensions.json
 .claudesync/
 
-# Secrets and local config (commit *.example templates instead)
-.env
-.env.*
-!.env.example
+# Secrets and local config (commit *.example / *.template instead)
+.env*
 !.env*.example
 !.env*.template
 *.tfvars

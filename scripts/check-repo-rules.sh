@@ -11,7 +11,7 @@ HEADING='## Never commit secrets or private data'
 
 # Tracked paths matching any of these (ERE) are forbidden.
 FORBIDDEN=(
-  '(^|/)\.env($|\.)'
+  '(^|/)\.env[^/]*$'
   '\.tfvars$'
   '\.tfvars\.json$'
   '\.tfstate'
@@ -63,8 +63,9 @@ while IFS= read -r path; do
   [ -z "$path" ] && continue
   for pattern in "${FORBIDDEN[@]}"; do
     if grep -qE -- "$pattern" <<<"$path"; then
-      # .env*.example and .env*.template are the allowed template forms.
-      if [ "$pattern" = '(^|/)\.env($|\.)' ] && [[ "$path" == *.example || "$path" == *.template ]]; then
+      # Any basename starting with .env is forbidden, except the template
+      # forms .env*.example and .env*.template.
+      if [ "$pattern" = '(^|/)\.env[^/]*$' ] && [[ "$path" == *.example || "$path" == *.template ]]; then
         continue
       fi
       violation "sensitive file is tracked: $path (matches $pattern)"

@@ -110,6 +110,14 @@ echo 'X=1' >"$WORK/dotenv/backend/.env"
 git -C "$WORK/dotenv" add -f backend/.env
 expect_fail "tracked backend/.env" "$WORK/dotenv" "backend/.env"
 
+# 7b. Tracked backend/.envrc and backend/.env-prod.
+for name in .envrc .env-prod; do
+  make_repo "$WORK/dotenv$name"
+  echo 'X=1' >"$WORK/dotenv$name/backend/$name"
+  git -C "$WORK/dotenv$name" add -f "backend/$name"
+  expect_fail "tracked backend/$name" "$WORK/dotenv$name" "backend/$name"
+done
+
 # 8. Tracked Terraform plan file.
 make_repo "$WORK/tfplan"
 echo 'plan' >"$WORK/tfplan/infra/terraform/environments/prod/tfplan"
