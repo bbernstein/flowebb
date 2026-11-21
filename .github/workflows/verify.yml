@@ -37,6 +37,7 @@ jobs:
               - 'web/**'
             infra:
               - 'infra/**'
+            # Reserved for future firmware CI; no job consumes this yet.
             firmware:
               - 'firmware/**'
             workflows:
@@ -270,14 +271,6 @@ jobs:
             echo "::error::terraform plan failed with exit code $code"
             exit "$code"
           fi
-
-      - name: Cleanup Terraform Lock
-        if: always()
-        run: |
-          aws dynamodb delete-item \
-            --table-name terraform-state-lock \
-            --key "{\"LockID\": {\"S\": \"flowebb-terraform-state-bucket/prod/terraform.tfstate\"}}"
-        continue-on-error: true
 
   secrets-scan:
     runs-on: ubuntu-latest
