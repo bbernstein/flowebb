@@ -1,7 +1,11 @@
 name: Deploy Web Application
 
-# push trigger re-enabled in follow-up after cutover
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/deploy-web.yml'
   workflow_dispatch:
 
 env:

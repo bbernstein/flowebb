@@ -1,7 +1,11 @@
 name: Deploy Backend
 
-# push trigger re-enabled in follow-up after cutover
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
 env:

@@ -1,7 +1,11 @@
 name: Deploy Infrastructure
 
-# push trigger re-enabled in follow-up after cutover
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/deploy-infra.yml'
   workflow_dispatch:
 
 env:
