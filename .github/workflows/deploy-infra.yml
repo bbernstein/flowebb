@@ -1,7 +1,11 @@
 name: Deploy Infrastructure
 
-# push trigger re-enabled in follow-up after cutover
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/deploy-infra.yml'
   workflow_dispatch:
 
 env:
@@ -45,6 +49,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
 
       - name: Terraform Init
         run: terraform init
@@ -56,7 +61,8 @@ jobs:
           terraform plan -no-color -out=tfplan > "$RUNNER_TEMP/plan.txt" 2>&1
           code=$?
           set -e
-          grep -E '^(Plan:|No changes|Error)' "$RUNNER_TEMP/plan.txt" || true
+          # Summary plus which resources change; Error lines are printed below on failure.
+          grep -E '^(Plan:|No changes)|^  # .* (will be|must be)' "$RUNNER_TEMP/plan.txt" || true
           if [ "$code" -ne 0 ]; then
             grep -A 15 -E '^Error' "$RUNNER_TEMP/plan.txt" || true
             exit "$code"
@@ -73,14 +79,17 @@ jobs:
           terraform apply -no-color -auto-approve tfplan > "$RUNNER_TEMP/apply.txt" 2>&1
           code=$?
           set -e
-          grep -E '^(Apply complete|Error)' "$RUNNER_TEMP/apply.txt" || true
+          grep -E '^Apply complete' "$RUNNER_TEMP/apply.txt" || true
           if [ "$code" -ne 0 ]; then
             grep -A 15 -E '^Error' "$RUNNER_TEMP/apply.txt" || true
             exit "$code"
           fi
 
       - name: Cleanup Terraform Lock
-        if: always()  # Run even if previous steps failed
+        # Only a cancelled (killed) run can leave a stale lock behind. Terraform
+        # releases its own lock on a handled plan or apply failure, so cleaning up
+        # on failure could delete a lock held by a concurrent PR plan or apply.
+        if: cancelled()
         run: |
           aws dynamodb delete-item \
             --table-name terraform-state-lock \
