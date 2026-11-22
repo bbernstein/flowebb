@@ -102,19 +102,31 @@ Run each from its platform directory. Full details are in each platform's
 
 CI is `.github/workflows/verify.yml`. It runs path-filtered jobs per
 platform, and `ci-gate` is the required check. Deploy workflows
-(`deploy-backend.yml`, `deploy-web.yml`, `deploy-infra.yml`) are manual. Never
-dispatch one without the owner's go-ahead.
+(`deploy-backend.yml`, `deploy-web.yml`, `deploy-infra.yml`) run automatically
+on push to `main`, each filtered to its own platform directory (and its own
+workflow file), and can also be dispatched manually from `main`. Merging a PR
+therefore deploys the platforms it touched. Never dispatch one without the
+owner's go-ahead.
 
 Infra PRs: a PR that intentionally changes infrastructure makes `infra-plan`
 fail (the plan has changes), so `ci-gate` fails. That is by design. The owner
-reviews the plan summary, merges with admin bypass, then dispatches
-`deploy-infra` from `main`. Do not loop trying to make that check pass. Stop and
+reviews the plan summary and merges with admin bypass, and the push to `main`
+runs `deploy-infra`. Do not loop trying to make that check pass. Stop and
 ask the owner. Details are in `infra/CLAUDE.md`.
 
 ## Decisions
 
 Check `docs/decisions/` before changing behavior in an area. Add a record
 there when you make a non-obvious choice.
+
+Key decisions:
+
+- [0033: Return to a single monorepo now that Claude Code reads files on demand](docs/decisions/0033-monorepo-reunified-2026.md)
+- [0001: Static site on S3 and CloudFront, API on API Gateway and Lambda](docs/decisions/0001-static-site-and-api-on-separate-domains.md)
+- [0025: Serve the API as one GraphQL Lambda built with gqlgen](docs/decisions/0025-graphql-api-with-gqlgen.md)
+- [0026: The device is a thin GraphQL client and depends on fixed tide fields](docs/decisions/0026-device-graphql-contract.md)
+- [0004: Infra and application deploys are separate; Terraform ignores Lambda code](docs/decisions/0004-infra-and-app-deploys-are-separate.md)
+- [0015: The backend handles all tide times in the station's local zone](docs/decisions/0015-backend-times-in-station-local-zone.md)
 
 ## Adding a platform
 

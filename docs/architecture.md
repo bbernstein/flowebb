@@ -8,7 +8,7 @@
 | Web app | `web/` | Static Next.js export in S3, served by CloudFront |
 | Tide LED device | `firmware/` | ESP32-S3 with one NeoPixel LED |
 | Infrastructure | `infra/` | Terraform, with remote state in S3 (`flowebb-terraform-state-bucket`) and lock table `terraform-state-lock` |
-| CI/CD | `.github/workflows/` | GitHub Actions (`verify.yml` on PRs; manual `deploy-*.yml`) |
+| CI/CD | `.github/workflows/` | GitHub Actions (`verify.yml` on PRs; `deploy-*.yml` on push to `main` or manual dispatch) |
 | Future clients | `apps/ios/`, `apps/watchos/` | not created yet (see `adding-a-platform.md`) |
 
 ## Data flow
@@ -49,7 +49,9 @@ in the field update on their own schedules. See the root `CLAUDE.md`.
   The repos allowed to assume it are listed in the `github_repos` variable and
   `github_oidc_extra_subjects` in `infra/terraform/environments/prod/main.tf`
   (`bbernstein/flowebb` uses the ID-based subject in the latter; never remove it).
-- Deploys are manual (`workflow_dispatch`) for now:
+- Each deploy workflow runs on push to `main`, filtered to its own platform
+  directory and workflow file, and can also be dispatched manually from `main`
+  (`workflow_dispatch`):
   - `deploy-infra.yml` runs `terraform apply`.
   - `deploy-backend.yml` builds `cmd/graphql` and updates Lambda `flowebb-graphql-prod`.
   - `deploy-web.yml` runs `web/scripts/deploy-frontend.sh prod` (S3 sync + CloudFront invalidation).
