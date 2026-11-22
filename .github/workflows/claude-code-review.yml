@@ -1,0 +1,135 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+    # Optional: Only run on specific file changes
+    # paths:
+    #   - "src/**/*.ts"
+    #   - "src/**/*.tsx"
+    #   - "src/**/*.js"
+    #   - "src/**/*.jsx"
+
+jobs:
+  claude-review:
+    # Optional: Filter by PR author
+    # if: |
+    #   github.event.pull_request.user.login == 'external-contributor' ||
+    #   github.event.pull_request.user.login == 'new-developer' ||
+    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Full history so the code-review plugin's git blame/history sub-agent
+          # has commits to analyze (fetch-depth: 1 leaves only the tip commit).
+          fetch-depth: 0
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@df37d2f0760a4b5683a6e617c9325bc1a36443f6 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
+          plugins: 'code-review@claude-code-plugins'
+          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
+          # Post inline findings immediately instead of buffering them for a
+          # post-session "real review vs test/probe" classifier. The default
+          # (classify_inline_comments: true) was silently dropping every finding
+          # ("No buffered inline comments" in the run log), so the review reported
+          # success but never posted anything. false restores the pre-buffering
+          # behavior that worked before the action added classification.
+          classify_inline_comments: false
+          # Verbose JSON output can include tool-execution results (and thus
+          # secrets), so it's OFF by default and gated behind an opt-in label.
+          # To diagnose a review (e.g. inspect permission_denials or why comments
+          # aren't posting): add the `claude-debug` label to the PR, then push a
+          # commit to re-trigger the run. Remove the label when done.
+          show_full_output: ${{ contains(github.event.pull_request.labels.*.name, 'claude-debug') }}
+          # In agent mode the allow-list comes only from claude_args below — the
+          # /code-review plugin command's own `allowed-tools` frontmatter is NOT
+          # enforced (anthropics/claude-code#18837). So every tool the plugin and
+          # its parallel sub-agents use must be listed here, or it is denied
+          # (shows up as permission_denials_count in the run result).
+          #
+          # The gh/git entries use broad `:*` prefixes rather than an exact
+          # subcommand list: the review's blame/history sub-agents reach for many
+          # read-only git subcommands (rev-parse, merge-base, status, …) and gh
+          # api/pr calls, and enumerating each one is brittle — a missed one
+          # silently degrades the review. Broad is safe here: the job has only
+          # `contents: read`, so a stray git/gh write can't affect the remote, and
+          # the runner is ephemeral. The non-shell tools must stay listed:
+          #   - inline-comment MCP tool: post review findings on the diff
+          #   - Read/Grep/Glob: read changed files and find CLAUDE.md files
+          #   - Agent: spawn the parallel Haiku/Sonnet review sub-agents
+          #
+          # Read-only text tools (sed/cat/awk/head/tail/wc) are listed because a
+          # large `gh pr diff` (e.g. a PR that regenerates package-lock.json —
+          # 16k+ lines) exceeds the action's inline tool-output limit and is
+          # persisted to a temp file. The review and its sub-agents then slice
+          # that file with these tools to read the actual code changes; without
+          # them every attempt is denied, the review is starved of the diff, and
+          # it posts nothing (an empty review with a high permission_denials
+          # count — observed on PR #62). They are safe: the job has only
+          # `contents: read` on an ephemeral runner.
+          #
+          # ls/grep/find/jq/rg/diff are additional read-only exploration tools the
+          # review's sub-agents intermittently reach for (observed as a non-zero
+          # permission_denials_count on some runs, zero on others — it varies with
+          # what each run's agents try). They are safe for the same reason as the
+          # text tools above: read-only, on an ephemeral `contents: read` runner.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh api:*),Bash(gh pr:*),Bash(gh issue:*),Bash(gh search:*),Bash(git:*),Bash(sed:*),Bash(cat:*),Bash(awk:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(ls:*),Bash(grep:*),Bash(find:*),Bash(jq:*),Bash(rg:*),Bash(diff:*),Read,Grep,Glob,Agent"
+          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+          # or https://code.claude.com/docs/en/cli-reference for available options
+
+      # Post/update a single sticky comment summarizing the review outcome, so
+      # every PR visibly shows that Claude reviewed it — even when there are no
+      # findings. The /code-review plugin posts inline comments only, so a clean
+      # PR otherwise leaves no visible trace (which reads as "the review didn't
+      # run"). Idempotent: it finds its own marker comment and edits it in place,
+      # so re-pushes update one comment instead of adding a new one each time.
+      - name: Post sticky review summary
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REVIEW_OUTCOME: ${{ steps.claude-review.outcome }}
+        run: |
+          set -euo pipefail
+          MARKER='<!-- claude-review-summary -->'
+          SHORT_SHA="${HEAD_SHA:0:7}"
+          if [ "$REVIEW_OUTCOME" != "success" ]; then
+            SUMMARY="⚠️ Claude Code Review did not complete on \`$SHORT_SHA\` (status: \`$REVIEW_OUTCOME\`). See the workflow run logs."
+          else
+            # Count inline findings this review posted against the current commit.
+            N=$(gh api "repos/$REPO/pulls/$PR/comments?per_page=100" \
+              --jq '[.[] | select(.user.login=="claude[bot]" and .commit_id==env.HEAD_SHA)] | length')
+            if [ "${N:-0}" -gt 0 ]; then
+              SUMMARY="🔍 Claude Code Review posted **$N** inline finding(s) on \`$SHORT_SHA\` — see the inline comments on the diff."
+            else
+              SUMMARY="✅ Claude Code Review completed on \`$SHORT_SHA\` — no issues found."
+            fi
+          fi
+          BODY=$(printf '%s\n%s\n\n_Automated summary — updated on each push._\n' "$MARKER" "$SUMMARY")
+          # Upsert: edit the existing marker comment if present, else create one.
+          CID=$(gh api "repos/$REPO/issues/$PR/comments?per_page=100" \
+            --jq 'first(.[] | select(.body | contains("<!-- claude-review-summary -->")) | .id) // empty')
+          if [ -n "$CID" ]; then
+            gh api "repos/$REPO/issues/comments/$CID" -X PATCH -f body="$BODY" >/dev/null
+            echo "Updated sticky summary comment ($CID): $SUMMARY"
+          else
+            gh api "repos/$REPO/issues/$PR/comments" -f body="$BODY" >/dev/null
+            echo "Created sticky summary comment: $SUMMARY"
+          fi
+

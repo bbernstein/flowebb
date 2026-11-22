@@ -81,6 +81,11 @@ Before changing a field, search for it in `web/src/` and `firmware/src/`.
 - If a change makes an existing test fail, ask the owner before changing
   the test.
 - Write a descriptive commit message stating what changed and why.
+- Every push to a PR gets two automated reviews. Copilot (Balanced effort) is
+  auto-requested by the `copilot-review` ruleset. Claude runs
+  `.github/workflows/claude-code-review.yml`, and its `claude-review` job is a
+  required check next to `ci-gate`. Address or reply to every finding from
+  both before asking the owner to merge.
 
 ## Commands quick reference
 
