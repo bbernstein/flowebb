@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { TideInfo } from "@/components/TideInfo";
@@ -10,6 +10,8 @@ import { locationStorage, stationStorage } from "@/utils/storage";
 import { TideProvider } from "@/context/TideContext";
 import LocationButton from "@/components/LocationButton";
 import { useStationContext } from "@/context/StationContext";
+import { DEFAULT_LOCATION, GEOLOCATION_FALLBACK_MS } from "@/utils/initialLocation";
+import { Station } from "@/types";
 
 const TideInfoContainer = styled(Box)(({}) => ({
     height: "500px",
@@ -50,6 +52,14 @@ const LogoContainer = styled(Box)(({ theme }) => ({
     },
 }));
 
+function saveStation(station: Station) {
+    stationStorage.set({
+        id: station.id,
+        name: station.name,
+        timeZoneOffset: station.timeZoneOffset,
+    });
+}
+
 export default function Home() {
     const [location, setLocation] = useState<{ lat: number; lon: number } | null>(
         null
@@ -64,72 +74,130 @@ export default function Home() {
     const [locationLoading, setLocationLoading] = useState(false);
     const { stations, fetchStations } = useStationContext();
 
+    // fetchStations gets a new identity on every StationProvider render. The
+    // first-load effect reads it through a ref so it runs only on mount.
+    const fetchStationsRef = useRef(fetchStations);
     useEffect(() => {
+        fetchStationsRef.current = fetchStations;
+    }, [fetchStations]);
+
+    // Set once the visitor picks a location themselves, so a late geolocation
+    // answer does not move the map away from their choice.
+    const userPickedLocation = useRef(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        let latestRequest = 0;
+        let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+
         const storedStation = stationStorage.get();
         const storedLocation = locationStorage.get();
 
+        // Every first-load path ends here, so the spinner always clears (issue #13).
+        const loadAt = async (
+            loc: { lat: number; lon: number },
+            preferredStationId: string | null
+        ) => {
+            const request = ++latestRequest;
+            setLocation(loc);
+            setError("");
+            try {
+                const newStations = await fetchStationsRef.current(loc.lat, loc.lon);
+                if (cancelled || request !== latestRequest || userPickedLocation.current) {
+                    return;
+                }
+                if (newStations.length === 0) {
+                    setSelectedStationId(null);
+                    setDisplayStationId(null);
+                    setError("No tide stations found near this location");
+                    return;
+                }
+                const preferred = preferredStationId
+                    ? newStations.find((s) => s.id === preferredStationId)
+                    : undefined;
+                // Decision 0029: a new location shows its nearest station right away.
+                const station = preferred ?? newStations[0];
+                setSelectedStationId(station.id);
+                setDisplayStationId(station.id);
+                if (!preferred) saveStation(station);
+            } catch (err) {
+                if (cancelled || request !== latestRequest) return;
+                console.error("Error loading stations:", err);
+                setError("Failed to load stations");
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+
         if (storedLocation) {
-            setLocation(storedLocation);
-            fetchStations(storedLocation.lat, storedLocation.lon)
-                .then(() => {
-                    setLoading(false);
-                    if (storedStation) {
-                        setSelectedStationId(storedStation.id);
-                        setDisplayStationId(storedStation.id);
-                    }
-                })
-                .catch(console.error);
-        } else if (navigator.geolocation) {
+            void loadAt(storedLocation, storedStation?.id ?? null);
+        } else if (!navigator.geolocation) {
+            locationStorage.set(DEFAULT_LOCATION);
+            void loadAt(DEFAULT_LOCATION, null);
+        } else {
+            // Some browsers never call back when the prompt is dismissed, so show
+            // the default location after a while. That fallback is not saved, so
+            // the next visit asks again. If the visitor allows location later, the
+            // real position still replaces the fallback (decision 0036).
+            let answered = false;
+            let fellBack = false;
+            fallbackTimer = setTimeout(() => {
+                fellBack = true;
+                void loadAt(DEFAULT_LOCATION, null);
+            }, GEOLOCATION_FALLBACK_MS);
+
             navigator.geolocation.getCurrentPosition(
                 (position) => {
+                    if (cancelled || answered) return;
+                    answered = true;
+                    clearTimeout(fallbackTimer);
+                    if (userPickedLocation.current) return;
                     const newLocation = {
                         lat: position.coords.latitude,
                         lon: position.coords.longitude,
                     };
-                    setLocation(newLocation);
                     locationStorage.set(newLocation);
-                    fetchStations(newLocation.lat, newLocation.lon).then(() => {
-                    });
+                    void loadAt(newLocation, null);
                 },
                 () => {
-                    const defaultLocation = { lat: 47.6062, lon: -122.3321 };
-                    setLocation(defaultLocation);
-                    locationStorage.set(defaultLocation);
-                    fetchStations(defaultLocation.lat, defaultLocation.lon).then(
-                        () => {
-                        }
-                    );
+                    if (cancelled || answered) return;
+                    answered = true;
+                    clearTimeout(fallbackTimer);
+                    if (fellBack) return; // already showing the default location
+                    locationStorage.set(DEFAULT_LOCATION);
+                    void loadAt(DEFAULT_LOCATION, null);
                 }
             );
         }
-    }, [fetchStations]);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(fallbackTimer);
+        };
+    }, []);
+
+    // Shows the nearest station for a location the visitor picked (decision 0029).
+    const showNearest = (newStations: Station[]) => {
+        if (newStations.length > 0) {
+            setSelectedStationId(newStations[0].id);
+            setDisplayStationId(newStations[0].id);
+            saveStation(newStations[0]);
+        } else {
+            setSelectedStationId(null);
+            setDisplayStationId(null);
+        }
+    };
 
     const handleMapClick = async (lat: number, lon: number) => {
+        userPickedLocation.current = true;
         try {
-            // First fetch the stations to ensure we have them before updating state
+            // Fetch first, then update all state together.
             const newLocation = { lat, lon };
             const newStations = await fetchStations(lat, lon);
-
-            // Then update all state together
             setLocation(newLocation);
             locationStorage.set(newLocation);
-
-            if (newStations.length > 0) {
-                // Set both station IDs in the same render cycle
-                setSelectedStationId(newStations[0].id);
-                setDisplayStationId(newStations[0].id);
-                // Update storage
-                const selectedStation = newStations[0];
-                stationStorage.set({
-                    id: selectedStation.id,
-                    name: selectedStation.name,
-                    timeZoneOffset: selectedStation.timeZoneOffset,
-                });
-            } else {
-                // Only clear station selection if no stations found
-                setSelectedStationId(null);
-                setDisplayStationId(null);
-            }
+            setError("");
+            showNearest(newStations);
         } catch (error) {
             console.error("Error handling map click:", error);
             setError("Failed to load stations");
@@ -145,21 +213,24 @@ export default function Home() {
         setLocationLoading(true);
         navigator.geolocation.getCurrentPosition(
             (position) => {
+                userPickedLocation.current = true;
                 const newLocation = {
                     lat: position.coords.latitude,
                     lon: position.coords.longitude,
                 };
-                setSelectedStationId(null);
-                setDisplayStationId(null);
-                locationStorage.set(newLocation);
                 fetchStations(newLocation.lat, newLocation.lon)
-                    .then(() => {
-                        setLocationLoading(false);
+                    .then((newStations) => {
+                        setLocation(newLocation);
+                        locationStorage.set(newLocation);
+                        setError("");
+                        showNearest(newStations);
                     })
                     .catch((error) => {
                         console.error("Error fetching stations:", error);
                         setError("Failed to load stations");
-                        setLocationLoading(false); // Ensure loading state is reset
+                    })
+                    .finally(() => {
+                        setLocationLoading(false);
                     });
             },
             () => {
@@ -184,13 +255,7 @@ export default function Home() {
         const selectedStation = stations.find(
             (station) => station.id === stationId
         );
-        if (selectedStation) {
-            stationStorage.set({
-                id: selectedStation.id,
-                name: selectedStation.name,
-                timeZoneOffset: selectedStation.timeZoneOffset,
-            });
-        }
+        if (selectedStation) saveStation(selectedStation);
     };
 
     const displayStation = stations.find(

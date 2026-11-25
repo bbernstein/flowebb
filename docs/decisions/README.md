@@ -43,6 +43,7 @@ Each record is listed once, under the platform it mainly constrains. Its
 - [0021: Logo is an animated SVG wordmark, "flow" rising and "ebb" receding](0021-animated-wordmark-logo.md). Accepted.
 - [0023: Tide chart "now" marker ticks each minute; range shifts every six hours](0023-tide-chart-live-now-marker.md). Accepted.
 - [0029: Picking a location always selects the nearest station](0029-auto-select-nearest-station.md). Accepted.
+- [0036: A first visit always ends on the map, with a location fallback](0036-first-visit-always-reaches-interactive.md). Accepted.
 
 ### WWW
 

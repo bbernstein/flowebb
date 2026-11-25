@@ -44,6 +44,17 @@ describe('storage utilities', () => {
             const retrieved = locationStorage.get();
             expect(retrieved).toBeNull();
         });
+
+        it.each([
+            ['an empty object', '{}'],
+            ['a null latitude', '{"lat":null,"lon":-122.3}'],
+            ['string coordinates', '{"lat":"47.6","lon":"-122.3"}'],
+            ['a non-finite value', '{"lat":1e999,"lon":-122.3}'],
+            ['a bare number', '42'],
+        ])('returns null for %s', (_label, raw) => {
+            localStorage.setItem('lastLocation', raw);
+            expect(locationStorage.get()).toBeNull();
+        });
     });
 
     describe('stationStorage', () => {
