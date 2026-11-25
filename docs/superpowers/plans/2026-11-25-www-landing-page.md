@@ -74,6 +74,7 @@
 - Test: `www/test/site.test.mjs`
 
 **Interfaces:**
+- Note: Node 22 needs the glob form `node --test 'test/*.test.mjs'`; a bare directory fails.
 - Produces: `npm run lint` (`html-validate site/*.html`), `npm test` (`node --test test/`), run from `www/`. Task 3 extends `index.html` and the test file; Task 6 calls these scripts from CI.
 
 - [ ] **Step 1: Write the failing tests** in `www/test/site.test.mjs` using `node:test` + `node:assert/strict`, reading files from `../site/` (resolve via `import.meta.url`). Parse with regexes; no extra deps. Tests:

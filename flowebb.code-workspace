@@ -3,6 +3,7 @@
     { "name": "flowebb (root)", "path": "." },
     { "name": "backend", "path": "backend" },
     { "name": "web", "path": "web" },
+    { "name": "www", "path": "www" },
     { "name": "infra", "path": "infra" },
     { "name": "firmware", "path": "firmware" }
   ],

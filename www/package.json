@@ -1,0 +1,13 @@
+{
+  "name": "flowebb-www",
+  "private": true,
+  "type": "module",
+  "description": "Static landing page for www.flowebb.com",
+  "scripts": {
+    "lint": "html-validate site/*.html",
+    "test": "node --test 'test/*.test.mjs' && bash scripts/deploy.test.sh"
+  },
+  "devDependencies": {
+    "html-validate": "11.22.1"
+  }
+}
