@@ -95,7 +95,9 @@ resource "aws_iam_role_policy" "github_actions" {
             "arn:aws:s3:::${var.project_name}-station-list-${var.environment}",
             "arn:aws:s3:::${var.project_name}-station-list-${var.environment}/*",
             "arn:aws:s3:::${var.project_name}-cloudfront-logs-${var.environment}",
-            "arn:aws:s3:::${var.project_name}-cloudfront-logs-${var.environment}/*"
+            "arn:aws:s3:::${var.project_name}-cloudfront-logs-${var.environment}/*",
+            "arn:aws:s3:::${var.www_bucket_name}",
+            "arn:aws:s3:::${var.www_bucket_name}/*"
           ]
         },
         {
@@ -127,6 +129,7 @@ resource "aws_iam_role_policy" "github_actions" {
           "Action" : [
             "route53:ListHostedZones",
             "route53:GetHostedZone",
+            "route53:GetChange",
             "route53:ListResourceRecordSets",
             "route53:ChangeResourceRecordSets",
             "route53:ListTagsForResource",
@@ -157,6 +160,7 @@ resource "aws_iam_role_policy" "github_actions" {
             "cloudfront:CreateDistribution",
             "cloudfront:DeleteDistribution",
             "cloudfront:GetDistribution",
+            "cloudfront:GetDistributionConfig",
             "cloudfront:UpdateDistribution",
             "cloudfront:TagResource",
             "cloudfront:UntagResource",
@@ -168,9 +172,49 @@ resource "aws_iam_role_policy" "github_actions" {
             "cloudfront:UpdateCloudFrontOriginAccessIdentity"
           ],
           Resource = [
-            "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${var.cloudfront_distribution_id}",
+            "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/*",
             "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:origin-access-identity/*"
           ]
+        },
+        {
+          Effect = "Allow"
+          Action = [
+            "cloudfront:CreateOriginAccessControl",
+            "cloudfront:GetOriginAccessControl",
+            "cloudfront:GetOriginAccessControlConfig",
+            "cloudfront:UpdateOriginAccessControl",
+            "cloudfront:DeleteOriginAccessControl"
+          ]
+          Resource = [
+            "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:origin-access-control/*"
+          ]
+        },
+        {
+          Effect = "Allow"
+          Action = [
+            "cloudfront:CreateFunction",
+            "cloudfront:DescribeFunction",
+            "cloudfront:GetFunction",
+            "cloudfront:UpdateFunction",
+            "cloudfront:PublishFunction",
+            "cloudfront:DeleteFunction",
+            "cloudfront:TestFunction"
+          ]
+          Resource = [
+            "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:function/${var.project_name}-*"
+          ]
+        },
+        {
+          # Read/list CloudFront actions that do not support resource-level scoping.
+          # Cache policy actions are needed for data "aws_cloudfront_cache_policy"
+          # lookups during plan; ListOriginAccessControls is used on refresh.
+          Effect = "Allow"
+          Action = [
+            "cloudfront:ListCachePolicies",
+            "cloudfront:GetCachePolicy",
+            "cloudfront:ListOriginAccessControls"
+          ]
+          Resource = "*"
         },
         {
           Effect = "Allow"

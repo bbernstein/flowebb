@@ -29,11 +29,6 @@ variable "frontend_bucket_arn" {
   type        = string
 }
 
-variable "cloudfront_distribution_id" {
-  description = "ID of the CloudFront distribution"
-  type        = string
-}
-
 variable "terraform_state_bucket" {
   description = "Name of the S3 bucket for Terraform state"
   type        = string
@@ -41,5 +36,10 @@ variable "terraform_state_bucket" {
 
 variable "terraform_state_lock_table" {
   description = "Name of the DynamoDB table for Terraform state locking"
+  type        = string
+}
+
+variable "www_bucket_name" {
+  description = "Name of the S3 bucket for the www landing site"
   type        = string
 }
