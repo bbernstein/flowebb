@@ -1,0 +1,10 @@
+:root { --blue: #2196f3; --ink: #1c2b36; --bg: #f7fbff; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--bg); line-height: 1.6; }
+main { max-width: 40rem; margin: 0 auto; padding: 2rem 1rem; text-align: center; }
+.logo { max-width: 100%; height: auto; }
+h1 { font-size: 1.9rem; line-height: 1.2; margin: 1rem 0 .5rem; }
+.lead { font-size: 1.15rem; margin: 0 0 1.5rem; }
+a { color: #0b66b8; }
+.cta { display: inline-block; padding: .75rem 1.5rem; border-radius: .5rem; background: #0b66b8; color: #fff; font-weight: 600; text-decoration: none; }
+.cta:hover, .cta:focus { background: #084f90; }
