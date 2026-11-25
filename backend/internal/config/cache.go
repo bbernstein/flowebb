@@ -34,7 +34,7 @@ type CacheConfig struct {
 const (
 	// Default values
 	defaultTidePredictionLRUSize    = 1000
-	defaultTidePredictionTTLMinutes = 15
+	defaultTidePredictionTTLMinutes = 60
 	defaultDynamoTTLDays            = 2
 	defaultStationListTTLDays       = 2
 	defaultGraphQLLRUSize           = 5000
