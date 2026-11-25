@@ -227,7 +227,7 @@ jobs:
         run: npm test
 
       - name: Test apex redirect function
-        run: node --test infra/terraform/modules/www_site/
+        run: node --test 'infra/terraform/modules/www_site/*.test.mjs'
 
   infra-lint:
     needs: changes

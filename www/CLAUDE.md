@@ -10,7 +10,7 @@ app at https://app.flowebb.com/). API usage: none, it links to the app only.
 - Hand-written HTML and CSS. No framework, no build step, no JavaScript.
 - `html-validate` (pinned) for lint, `node:test` for tests.
 - Node 22.22 or newer, or 24.8 or newer (html-validate requires it; CI uses Node 22).
-- Hosting: S3 + CloudFront (Terraform and deploy workflow come in later tasks).
+- Hosting: S3 + CloudFront. Terraform: `infra/terraform/modules/www_site/`. Deploy workflow: `.github/workflows/deploy-www.yml`, which runs `www/scripts/deploy.sh`.
 
 ## Directory map
 
@@ -25,7 +25,7 @@ app at https://app.flowebb.com/). API usage: none, it links to the app only.
 ```bash
 npm ci
 npm run lint    # html-validate site/*.html
-npm test        # node --test test/
+npm test        # node --test 'test/*.test.mjs' (glob form needed on Node 22), then scripts/deploy.test.sh
 ```
 
 ## Rules
@@ -41,8 +41,9 @@ npm test        # node --test test/
 
 ## Never commit secrets or private data
 
-The root rule applies in full. Here: never commit the S3 bucket name or
-CloudFront distribution ID (they come from GitHub secrets), and no personal
+The root rule applies in full. Here: never commit the CloudFront distribution ID,
+AWS account ID, or ARNs (they live only in GitHub secrets / terraform output; the
+bucket name is the public hostname `www.flowebb.com` and is committed by design), and no personal
 info (names, emails) in page content.
 
 ## Decisions
