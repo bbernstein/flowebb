@@ -118,7 +118,7 @@ module "github_actions" {
   # GitHub now sends ID-based OIDC subjects; these are the public owner and repo IDs of bbernstein/flowebb
   github_oidc_extra_subjects = ["repo:bbernstein@2228270/flowebb@1466765754:*"]
   frontend_bucket_arn        = module.storage.frontend_bucket_arn
-  cloudfront_distribution_id = module.edge_networking.cloudfront_distribution_id
+  www_bucket_name            = var.www_domain
 
   terraform_state_bucket     = "flowebb-terraform-state-bucket"
   terraform_state_lock_table = "terraform-state-lock"

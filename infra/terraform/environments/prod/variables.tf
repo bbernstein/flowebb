@@ -33,3 +33,9 @@ variable "api_domain" {
   type        = string
   default     = "api.flowebb.com"
 }
+
+variable "www_domain" {
+  description = "Marketing landing page domain"
+  type        = string
+  default     = "www.flowebb.com"
+}
