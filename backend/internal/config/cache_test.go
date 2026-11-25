@@ -40,6 +40,8 @@ func TestGetCacheConfig(t *testing.T) {
 	envVars := []string{
 		"CACHE_TIDE_LRU_SIZE",
 		"CACHE_TIDE_LRU_TTL_MINUTES",
+		"CACHE_GRAPHQL_LRU_SIZE",
+		"CACHE_GRAPHQL_LRU_TTL_MINUTES",
 		"CACHE_DYNAMO_TTL_DAYS",
 		"CACHE_STATION_LIST_TTL_DAYS",
 		"CACHE_BATCH_SIZE",
@@ -184,6 +186,19 @@ func TestEnvironmentOverrides(t *testing.T) {
 			},
 		},
 		{
+			// Terraform sets these names on the Lambda (infra/terraform/modules/compute/main.tf).
+			name: "graphql cache overrides use the Terraform names",
+			envVars: map[string]string{
+				"CACHE_GRAPHQL_LRU_SIZE":        "1234",
+				"CACHE_GRAPHQL_LRU_TTL_MINUTES": "15",
+			},
+			check: func(t *testing.T, c *CacheConfig) {
+				assert.Equal(t, 1234, c.GraphQLLRUSize)
+				assert.Equal(t, 15, c.GraphQLLRUTTLMinutes)
+				assert.Equal(t, 15*time.Minute, c.GetGraphQLLRUTTL())
+			},
+		},
+		{
 			name: "invalid numeric values",
 			envVars: map[string]string{
 				"CACHE_TIDE_LRU_SIZE": "invalid",
@@ -203,6 +218,8 @@ func TestEnvironmentOverrides(t *testing.T) {
 	envVars := []string{
 		"CACHE_TIDE_LRU_SIZE",
 		"CACHE_TIDE_LRU_TTL_MINUTES",
+		"CACHE_GRAPHQL_LRU_SIZE",
+		"CACHE_GRAPHQL_LRU_TTL_MINUTES",
 		"CACHE_DYNAMO_TTL_DAYS",
 		"CACHE_STATION_LIST_TTL_DAYS",
 		"CACHE_BATCH_SIZE",
@@ -270,6 +287,8 @@ func TestDefaultValues(t *testing.T) {
 	assert.Equal(t, defaultTidePredictionTTLMinutes, config.TidePredictionLRUTTLMinutes)
 	assert.Equal(t, defaultDynamoTTLDays, config.TidePredictionDynamoTTLDays)
 	assert.Equal(t, defaultStationListTTLDays, config.StationListTTLDays)
+	assert.Equal(t, defaultGraphQLLRUSize, config.GraphQLLRUSize)
+	assert.Equal(t, defaultGraphQLTTLMinutes, config.GraphQLLRUTTLMinutes)
 	assert.Equal(t, defaultBatchSize, config.BatchSize)
 	assert.Equal(t, defaultMaxBatchRetries, config.MaxBatchRetries)
 	assert.True(t, config.EnableLRUCache)
