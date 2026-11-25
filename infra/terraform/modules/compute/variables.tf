@@ -67,9 +67,9 @@ variable "cache_lru_size" {
 }
 
 variable "cache_lru_ttl_minutes" {
-  description = "TTL for LRU cache entries in minutes"
+  description = "TTL in minutes for the in-memory tide prediction LRU cache (per warm Lambda; DynamoDB is the long-lived layer)"
   type        = number
-  default     = 15
+  default     = 60
 }
 
 # Cache configuration variables
@@ -80,9 +80,9 @@ variable "cache_graphql_lru_size" {
 }
 
 variable "cache_graphql_lru_ttl_minutes" {
-  description = "TTL for LRU cache entries in minutes"
+  description = "TTL in minutes for the GraphQL query-string LRU cache (not yet wired into the server; see issue #16)"
   type        = number
-  default     = 15
+  default     = 60
 }
 
 variable "cache_dynamo_ttl_days" {

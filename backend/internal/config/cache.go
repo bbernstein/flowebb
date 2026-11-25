@@ -34,7 +34,7 @@ type CacheConfig struct {
 const (
 	// Default values
 	defaultTidePredictionLRUSize    = 1000
-	defaultTidePredictionTTLMinutes = 15
+	defaultTidePredictionTTLMinutes = 60
 	defaultDynamoTTLDays            = 2
 	defaultStationListTTLDays       = 2
 	defaultGraphQLLRUSize           = 5000
@@ -52,7 +52,7 @@ func GetCacheConfig() *CacheConfig {
 		TidePredictionDynamoTTLDays: getEnvInt("CACHE_DYNAMO_TTL_DAYS", defaultDynamoTTLDays),
 		StationListTTLDays:          getEnvInt("CACHE_STATION_LIST_TTL_DAYS", defaultStationListTTLDays),
 		GraphQLLRUSize:              getEnvInt("CACHE_GRAPHQL_LRU_SIZE", defaultGraphQLLRUSize),
-		GraphQLLRUTTLMinutes:        getEnvInt("CACHE_GRAPHQL_TTL_MINUTES", defaultGraphQLTTLMinutes),
+		GraphQLLRUTTLMinutes:        getEnvInt("CACHE_GRAPHQL_LRU_TTL_MINUTES", defaultGraphQLTTLMinutes),
 		BatchSize:                   getEnvInt("CACHE_BATCH_SIZE", defaultBatchSize),
 		MaxBatchRetries:             getEnvInt("CACHE_MAX_BATCH_RETRIES", defaultMaxBatchRetries),
 		EnableLRUCache:              getEnvBool("CACHE_ENABLE_LRU", true),
