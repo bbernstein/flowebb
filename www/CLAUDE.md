@@ -9,7 +9,7 @@ app at https://app.flowebb.com/). API usage: none, it links to the app only.
 
 - Hand-written HTML and CSS. No framework, no build step, no JavaScript.
 - `html-validate` (pinned) for lint, `node:test` for tests.
-- Node >= 20 (CI uses Node 22).
+- Node 22.22 or newer, or 24.8 or newer (html-validate requires it; CI uses Node 22).
 - Hosting: S3 + CloudFront (Terraform and deploy workflow come in later tasks).
 
 ## Directory map

@@ -82,8 +82,8 @@ test("no external or inline scripts", () => {
 
 test("local references exist", () => {
   for (const page of htmlPages()) {
-    for (const m of readSite(page).matchAll(/\b(?:href|src)="([^"]*)"/g)) {
-      const ref = m[1];
+    for (const m of readSite(page).matchAll(/\b(?:href|src)=(["'])(.*?)\1/g)) {
+      const ref = m[2];
       if (/^(https?:|mailto:|#)/.test(ref)) continue;
       const file = ref.replace(/^\//, "").split(/[?#]/)[0] || "index.html";
       assert.ok(existsSync(path.join(SITE_DIR, file)), `${page}: missing ${ref}`);
@@ -106,6 +106,39 @@ test("robots names sitemap", () => {
 
 test("sitemap lists canonical", () => {
   assert.ok(readSite("sitemap.xml").includes(`<loc>${WWW}</loc>`));
+});
+
+test("index has the expected sections", () => {
+  const h2s = [...readSite("index.html").matchAll(/<h2[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => stripTags(m[1]));
+  for (const re of [/what you get/i, /how it works/i, /questions/i]) {
+    assert.ok(h2s.some((t) => re.test(t)), `missing h2 matching ${re}: ${h2s.join(" | ")}`);
+  }
+});
+
+test("faq json-ld matches visible faq", () => {
+  const html = readSite("index.html");
+  const faq = jsonLdBlocks(html)
+    .map((b) => JSON.parse(b))
+    .find((b) => b["@type"] === "FAQPage");
+  assert.ok(faq, "FAQPage block present");
+  const section = html.match(/<(\w+)\b[^>]*\bid="faq"[^>]*>([\s\S]*?)<\/\1>/)?.[2] ?? "";
+  const items = [...section.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>\s*<p[^>]*>([\s\S]*?)<\/p>/g)].map((m) => ({
+    q: stripTags(m[1]),
+    a: stripTags(m[2]),
+  }));
+  assert.ok(items.length >= 4, `visible faq items: ${items.length}`);
+  assert.deepEqual(
+    faq.mainEntity.map((e) => e.name),
+    items.map((i) => i.q),
+  );
+  assert.deepEqual(
+    faq.mainEntity.map((e) => e.acceptedAnswer.text),
+    items.map((i) => i.a),
+  );
+});
+
+test("page does not mention the device", () => {
+  assert.doesNotMatch(stripTags(readSite("index.html")), /led|esp32|firmware|neopixel/i);
 });
 
 export { readSite, jsonLdBlocks, stripTags, metaContent };
