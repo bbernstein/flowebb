@@ -1,5 +1,5 @@
 import React from "react";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import Home from "../page";
 import { DEFAULT_LOCATION, GEOLOCATION_FALLBACK_MS } from "@/utils/initialLocation";
 import { locationStorage, stationStorage } from "@/utils/storage";
@@ -10,13 +10,16 @@ jest.mock("next/dynamic", () => () => {
     const MockMap = (props: {
         userLocation: { lat: number; lon: number };
         selectedStationId: string | null;
+        onLocationSelect: (lat: number, lon: number) => void;
     }) => (
         <div
             data-testid="map"
             data-lat={ props.userLocation.lat }
             data-lon={ props.userLocation.lon }
             data-selected={ props.selectedStationId ?? "" }
-        />
+        >
+            <button onClick={ () => props.onLocationSelect(32.7, -117.2) }>map click</button>
+        </div>
     );
     return MockMap;
 });
@@ -205,11 +208,95 @@ describe("Home first load", () => {
         // A fallback after a timeout is not saved, so the next visit asks again.
         expect(mockedLocationSet).not.toHaveBeenCalled();
 
-        // An answer that arrives after the fallback is ignored.
+        // A visitor who clicks Allow after the fallback still gets their location.
         await act(async () => {
-            lateSuccess?.({ coords: { latitude: 1, longitude: 2 } });
+            lateSuccess?.({ coords: { latitude: 40.7, longitude: -74.0 } });
         });
-        expect(fetchStations).toHaveBeenCalledTimes(1);
+        expect(screen.getByTestId("map")).toHaveAttribute("data-lat", "40.7");
+        expect(mockedLocationSet).toHaveBeenCalledWith({ lat: 40.7, lon: -74.0 });
+        expect(fetchStations).toHaveBeenLastCalledWith(40.7, -74.0);
+    });
+
+    it("late location answer after the visitor picked a spot on the map is ignored", async () => {
+        jest.useFakeTimers();
+        let lateSuccess: Success | undefined;
+        setGeolocation((ok) => {
+            lateSuccess = ok;
+        });
+
+        render(<Home/>);
+        await act(async () => {
+            jest.advanceTimersByTime(GEOLOCATION_FALLBACK_MS);
+        });
+        await screen.findByTestId("map");
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole("button", { name: "map click" }));
+        });
+        expect(screen.getByTestId("map")).toHaveAttribute("data-lat", "32.7");
+
+        await act(async () => {
+            lateSuccess?.({ coords: { latitude: 40.7, longitude: -74.0 } });
+        });
+        expect(screen.getByTestId("map")).toHaveAttribute("data-lat", "32.7");
+        expect(fetchStations).not.toHaveBeenCalledWith(40.7, -74.0);
+    });
+
+    it("unmounting while the prompt is open cancels the fallback", async () => {
+        jest.useFakeTimers();
+        let lateSuccess: Success | undefined;
+        setGeolocation((ok) => {
+            lateSuccess = ok;
+        });
+
+        const { unmount } = render(<Home/>);
+        unmount();
+        await act(async () => {
+            jest.advanceTimersByTime(GEOLOCATION_FALLBACK_MS);
+            lateSuccess?.({ coords: { latitude: 40.7, longitude: -74.0 } });
+        });
+
+        expect(fetchStations).not.toHaveBeenCalled();
+        expect(mockedLocationSet).not.toHaveBeenCalled();
+    });
+
+    it("a first-load error clears after a successful map click", async () => {
+        mockedLocationGet.mockReturnValue({ lat: 47.2, lon: -122.4 });
+        fetchStations.mockRejectedValueOnce(new Error("blip"));
+
+        render(<Home/>);
+        await screen.findByTestId("map");
+        expect(screen.getByRole("alert")).toHaveTextContent("Failed to load stations");
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole("button", { name: "map click" }));
+        });
+
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+        expect(screen.getByTestId("map")).toHaveAttribute("data-selected", nearest.id);
+    });
+
+    it("Use My Location moves the map and selects the nearest station", async () => {
+        mockedLocationGet.mockReturnValue({ lat: 47.2, lon: -122.4 });
+        mockedStationGet.mockReturnValue({ id: second.id, name: second.name, timeZoneOffset: 0 });
+        setGeolocation((ok) => ok({ coords: { latitude: 32.7, longitude: -117.2 } }));
+
+        render(<Home/>);
+        expect(await screen.findByTestId("map")).toHaveAttribute("data-selected", second.id);
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole("button", { name: /use my location/i }));
+        });
+
+        const map = screen.getByTestId("map");
+        expect(map).toHaveAttribute("data-lat", "32.7");
+        expect(map).toHaveAttribute("data-selected", nearest.id);
+        expect(screen.getByTestId("tide-info")).toHaveTextContent(nearest.id);
+        expect(mockedStationSet).toHaveBeenCalledWith({
+            id: nearest.id,
+            name: nearest.name,
+            timeZoneOffset: nearest.timeZoneOffset,
+        });
     });
 
     it("first visit, geolocation fetch fails: shows the map and an error", async () => {
@@ -220,6 +307,74 @@ describe("Home first load", () => {
 
         expect(await screen.findByTestId("map")).toBeInTheDocument();
         expect(screen.getByRole("alert")).toHaveTextContent("Failed to load stations");
+    });
+
+    it("map click that fails keeps the current station and shows an error", async () => {
+        mockedLocationGet.mockReturnValue({ lat: 47.2, lon: -122.4 });
+        render(<Home/>);
+        await screen.findByTestId("map");
+        fetchStations.mockRejectedValueOnce(new Error("down"));
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole("button", { name: "map click" }));
+        });
+
+        expect(screen.getByRole("alert")).toHaveTextContent("Failed to load stations");
+        expect(screen.getByTestId("map")).toHaveAttribute("data-selected", nearest.id);
+    });
+
+    it("map click with no stations nearby clears the selection", async () => {
+        mockedLocationGet.mockReturnValue({ lat: 47.2, lon: -122.4 });
+        render(<Home/>);
+        await screen.findByTestId("map");
+        fetchStations.mockResolvedValueOnce([]);
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole("button", { name: "map click" }));
+        });
+
+        expect(screen.getByTestId("map")).toHaveAttribute("data-selected", "");
+    });
+
+    it("Use My Location shows an error when the station fetch fails", async () => {
+        mockedLocationGet.mockReturnValue({ lat: 47.2, lon: -122.4 });
+        setGeolocation((ok) => ok({ coords: { latitude: 32.7, longitude: -117.2 } }));
+        render(<Home/>);
+        await screen.findByTestId("map");
+        fetchStations.mockRejectedValueOnce(new Error("down"));
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole("button", { name: /use my location/i }));
+        });
+
+        expect(screen.getByRole("alert")).toHaveTextContent("Failed to load stations");
+        expect(screen.getByRole("button", { name: /use my location/i })).toBeEnabled();
+    });
+
+    it("Use My Location shows an error when location is denied", async () => {
+        mockedLocationGet.mockReturnValue({ lat: 47.2, lon: -122.4 });
+        setGeolocation((_ok, fail) => fail({ code: 1, message: "denied" }));
+        render(<Home/>);
+        await screen.findByTestId("map");
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole("button", { name: /use my location/i }));
+        });
+
+        expect(screen.getByRole("alert")).toHaveTextContent("Unable to retrieve your location");
+    });
+
+    it("Use My Location shows an error when geolocation is unsupported", async () => {
+        mockedLocationGet.mockReturnValue({ lat: 47.2, lon: -122.4 });
+        setGeolocation(undefined);
+        render(<Home/>);
+        await screen.findByTestId("map");
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole("button", { name: /use my location/i }));
+        });
+
+        expect(screen.getByRole("alert")).toHaveTextContent("Geolocation is not supported");
     });
 
     it("runs the first-load logic once even if fetchStations changes identity", async () => {

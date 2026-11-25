@@ -20,7 +20,16 @@ export const locationStorage = {
         if (!stored) return null;
 
         try {
-            return JSON.parse(stored);
+            const parsed = JSON.parse(stored);
+            // A corrupt record would send null or NaN coordinates to the API.
+            if (
+                !parsed ||
+                !Number.isFinite(parsed.lat) ||
+                !Number.isFinite(parsed.lon)
+            ) {
+                return null;
+            }
+            return { lat: parsed.lat, lon: parsed.lon };
         } catch {
             return null;
         }

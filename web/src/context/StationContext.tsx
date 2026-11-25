@@ -46,7 +46,8 @@ export const StationProvider: React.FC<{ children: React.ReactNode }> = ({ child
             return newStations;
         } catch (err) {
             console.error('Error fetching stations:', err);
-            return [];
+            // Rethrow so callers can tell a failed request from an empty result.
+            throw err;
         }
     };
 
