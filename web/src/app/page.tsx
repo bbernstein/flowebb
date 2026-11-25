@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { TideInfo } from "@/components/TideInfo";
@@ -10,6 +10,7 @@ import { locationStorage, stationStorage } from "@/utils/storage";
 import { TideProvider } from "@/context/TideContext";
 import LocationButton from "@/components/LocationButton";
 import { useStationContext } from "@/context/StationContext";
+import { DEFAULT_LOCATION, GEOLOCATION_FALLBACK_MS } from "@/utils/initialLocation";
 
 const TideInfoContainer = styled(Box)(({}) => ({
     height: "500px",
@@ -64,44 +65,91 @@ export default function Home() {
     const [locationLoading, setLocationLoading] = useState(false);
     const { stations, fetchStations } = useStationContext();
 
+    // The first-load logic must run once. fetchStations gets a new identity on
+    // every StationProvider render, so it cannot gate this effect by itself.
+    const initialized = useRef(false);
+
     useEffect(() => {
+        if (initialized.current) return;
+        initialized.current = true;
+
         const storedStation = stationStorage.get();
         const storedLocation = locationStorage.get();
 
-        if (storedLocation) {
-            setLocation(storedLocation);
-            fetchStations(storedLocation.lat, storedLocation.lon)
-                .then(() => {
-                    setLoading(false);
-                    if (storedStation) {
-                        setSelectedStationId(storedStation.id);
-                        setDisplayStationId(storedStation.id);
-                    }
-                })
-                .catch(console.error);
-        } else if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const newLocation = {
-                        lat: position.coords.latitude,
-                        lon: position.coords.longitude,
-                    };
-                    setLocation(newLocation);
-                    locationStorage.set(newLocation);
-                    fetchStations(newLocation.lat, newLocation.lon).then(() => {
-                    });
-                },
-                () => {
-                    const defaultLocation = { lat: 47.6062, lon: -122.3321 };
-                    setLocation(defaultLocation);
-                    locationStorage.set(defaultLocation);
-                    fetchStations(defaultLocation.lat, defaultLocation.lon).then(
-                        () => {
-                        }
-                    );
+        // Every path ends here, so the spinner always clears (issue #13).
+        const loadAt = async (
+            loc: { lat: number; lon: number },
+            preferredStationId: string | null
+        ) => {
+            setLocation(loc);
+            try {
+                const newStations = await fetchStations(loc.lat, loc.lon);
+                if (newStations.length === 0) {
+                    setError("No tide stations found near this location");
+                    return;
                 }
-            );
+                const preferred = preferredStationId
+                    ? newStations.find((s) => s.id === preferredStationId)
+                    : undefined;
+                // Decision 0029: a new location shows its nearest station right away.
+                const station = preferred ?? newStations[0];
+                setSelectedStationId(station.id);
+                setDisplayStationId(station.id);
+                if (!preferred) {
+                    stationStorage.set({
+                        id: station.id,
+                        name: station.name,
+                        timeZoneOffset: station.timeZoneOffset,
+                    });
+                }
+            } catch (err) {
+                console.error("Error loading stations:", err);
+                setError("Failed to load stations");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (storedLocation) {
+            void loadAt(storedLocation, storedStation?.id ?? null);
+            return;
         }
+
+        if (!navigator.geolocation) {
+            locationStorage.set(DEFAULT_LOCATION);
+            void loadAt(DEFAULT_LOCATION, null);
+            return;
+        }
+
+        // Some browsers never call back when the prompt is dismissed, so fall
+        // back after a while. That fallback is not saved, so the next visit asks again.
+        let settled = false;
+        const fallbackTimer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            void loadAt(DEFAULT_LOCATION, null);
+        }, GEOLOCATION_FALLBACK_MS);
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(fallbackTimer);
+                const newLocation = {
+                    lat: position.coords.latitude,
+                    lon: position.coords.longitude,
+                };
+                locationStorage.set(newLocation);
+                void loadAt(newLocation, null);
+            },
+            () => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(fallbackTimer);
+                locationStorage.set(DEFAULT_LOCATION);
+                void loadAt(DEFAULT_LOCATION, null);
+            }
+        );
     }, [fetchStations]);
 
     const handleMapClick = async (lat: number, lon: number) => {
