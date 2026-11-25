@@ -5,7 +5,7 @@
   "description": "Static landing page for www.flowebb.com",
   "scripts": {
     "lint": "html-validate site/*.html",
-    "test": "node --test test/"
+    "test": "node --test test/ && bash scripts/deploy.test.sh"
   },
   "devDependencies": {
     "html-validate": "11.22.1"

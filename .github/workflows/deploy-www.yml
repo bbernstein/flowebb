@@ -1,0 +1,58 @@
+name: Deploy WWW Landing Page
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'www/**'
+      - '.github/workflows/deploy-www.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-www
+  cancel-in-progress: false
+
+jobs:
+  deploy-www:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      WWW_BUCKET_NAME: ${{ secrets.WWW_BUCKET_NAME }}
+      WWW_CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.WWW_CLOUDFRONT_DISTRIBUTION_ID }}
+    defaults:
+      run:
+        working-directory: www
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip notice when WWW secrets are not set
+        if: env.WWW_BUCKET_NAME == '' || env.WWW_CLOUDFRONT_DISTRIBUTION_ID == ''
+        run: echo "::notice::WWW_BUCKET_NAME or WWW_CLOUDFRONT_DISTRIBUTION_ID is not set; skipping deploy"
+
+      - name: Mask resource identifiers
+        if: env.WWW_BUCKET_NAME != '' && env.WWW_CLOUDFRONT_DISTRIBUTION_ID != ''
+        env:
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+        run: |
+          echo "::add-mask::$WWW_BUCKET_NAME"
+          echo "::add-mask::$WWW_CLOUDFRONT_DISTRIBUTION_ID"
+          ACCOUNT_ID="$(echo "$AWS_ROLE_ARN" | cut -d: -f5)"
+          if [ -n "$ACCOUNT_ID" ]; then echo "::add-mask::$ACCOUNT_ID"; fi
+
+      - name: Configure AWS credentials
+        if: env.WWW_BUCKET_NAME != '' && env.WWW_CLOUDFRONT_DISTRIBUTION_ID != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy www site
+        if: env.WWW_BUCKET_NAME != '' && env.WWW_CLOUDFRONT_DISTRIBUTION_ID != ''
+        run: bash scripts/deploy.sh
