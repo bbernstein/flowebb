@@ -1,7 +1,7 @@
 # www.flowebb.com landing page — design
 
 **Date:** 2026-11-25
-**Status:** Draft, awaiting owner approval
+**Status:** Approved 2026-11-25
 **Platforms:** new `www/`, `infra/`, `.github/`, `scripts/`, `docs/`
 
 ## Intent

@@ -129,6 +129,7 @@ resource "aws_iam_role_policy" "github_actions" {
           "Action" : [
             "route53:ListHostedZones",
             "route53:GetHostedZone",
+            "route53:GetChange",
             "route53:ListResourceRecordSets",
             "route53:ChangeResourceRecordSets",
             "route53:ListTagsForResource",
@@ -182,8 +183,7 @@ resource "aws_iam_role_policy" "github_actions" {
             "cloudfront:GetOriginAccessControl",
             "cloudfront:GetOriginAccessControlConfig",
             "cloudfront:UpdateOriginAccessControl",
-            "cloudfront:DeleteOriginAccessControl",
-            "cloudfront:ListOriginAccessControls"
+            "cloudfront:DeleteOriginAccessControl"
           ]
           Resource = [
             "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:origin-access-control/*"
@@ -205,12 +205,14 @@ resource "aws_iam_role_policy" "github_actions" {
           ]
         },
         {
-          # Read-only; ListCachePolicies does not support resource-level scoping.
-          # Needed for data "aws_cloudfront_cache_policy" lookups during plan.
+          # Read/list CloudFront actions that do not support resource-level scoping.
+          # Cache policy actions are needed for data "aws_cloudfront_cache_policy"
+          # lookups during plan; ListOriginAccessControls is used on refresh.
           Effect = "Allow"
           Action = [
             "cloudfront:ListCachePolicies",
-            "cloudfront:GetCachePolicy"
+            "cloudfront:GetCachePolicy",
+            "cloudfront:ListOriginAccessControls"
           ]
           Resource = "*"
         },
