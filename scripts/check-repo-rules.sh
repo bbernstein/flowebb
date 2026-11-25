@@ -6,7 +6,7 @@
 # Adding a platform? Add its directory to PLATFORMS (see docs/adding-a-platform.md).
 set -uo pipefail
 
-PLATFORMS=(backend web infra firmware)
+PLATFORMS=(backend web www infra firmware)
 HEADING='## Never commit secrets or private data'
 
 # Tracked paths matching any of these (ERE) are forbidden.

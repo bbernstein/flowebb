@@ -9,7 +9,7 @@ SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/check-repo-rules.sh"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-PLATFORMS=(backend web infra firmware)
+PLATFORMS=(backend web www infra firmware)
 HEADING='## Never commit secrets or private data'
 pass=0
 fail=0
@@ -24,7 +24,7 @@ make_repo() {
     echo
     echo "$HEADING"
     echo
-    echo "Routing: backend/ web/ infra/ firmware/"
+    echo "Routing: backend/ web/ www/ infra/ firmware/"
   } >"$dir/CLAUDE.md"
   for p in "${PLATFORMS[@]}"; do
     mkdir -p "$dir/$p"
@@ -78,13 +78,27 @@ expect_fail "missing secrets heading" "$WORK/heading" "web/CLAUDE.md is missing 
 
 # 3b. Missing secrets heading in the root CLAUDE.md.
 make_repo "$WORK/rootheading"
-echo "backend/ web/ infra/ firmware/" >"$WORK/rootheading/CLAUDE.md"
+echo "backend/ web/ www/ infra/ firmware/" >"$WORK/rootheading/CLAUDE.md"
 expect_fail "missing root secrets heading" "$WORK/rootheading" "violation: CLAUDE.md is missing heading"
 
 # 3c. Root CLAUDE.md does not mention a platform.
 make_repo "$WORK/route"
 printf '%s\nbackend/ web/ infra/\n' "$HEADING" >"$WORK/route/CLAUDE.md"
 expect_fail "root CLAUDE.md missing platform" "$WORK/route" "does not mention firmware/"
+
+# 3d. The www platform is registered: its CLAUDE.md and secrets heading are required.
+make_repo "$WORK/wwwmissing"
+git -C "$WORK/wwwmissing" rm -q --cached www/CLAUDE.md
+rm "$WORK/wwwmissing/www/CLAUDE.md"
+expect_fail "missing www/CLAUDE.md" "$WORK/wwwmissing" "missing www/CLAUDE.md"
+
+make_repo "$WORK/wwwheading"
+echo "# www" >"$WORK/wwwheading/www/CLAUDE.md"
+expect_fail "missing secrets heading in www" "$WORK/wwwheading" "www/CLAUDE.md is missing heading"
+
+make_repo "$WORK/wwwroute"
+printf '%s\nbackend/ web/ infra/ firmware/\n' "$HEADING" >"$WORK/wwwroute/CLAUDE.md"
+expect_fail "root CLAUDE.md missing www route" "$WORK/wwwroute" "does not mention www/"
 
 # 4. Tracked web/.env.local.
 make_repo "$WORK/env"

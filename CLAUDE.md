@@ -32,6 +32,7 @@ file is tracked. `gitleaks` runs in CI on every PR. Neither replaces judgment.
 | Request area | Directory | Stack | Rules |
 |---|---|---|---|
 | UI, pages, charts, maps, styling | `web/` | Next.js 15, React 18, Apollo, MUI, Leaflet, Highcharts | `web/CLAUDE.md` |
+| Marketing landing page, SEO, `www.flowebb.com` | `www/` | Static HTML/CSS, html-validate, S3 + CloudFront | `www/CLAUDE.md` |
 | API, GraphQL schema, tide/station data, NOAA client, caching, Lambda code | `backend/` | Go 1.23, gqlgen, AWS Lambda (arm64), DynamoDB, S3 | `backend/CLAUDE.md` |
 | AWS resources, DNS, CloudFront, IAM, Lambda config, CI deploy roles | `infra/` | Terraform 1.5 | `infra/CLAUDE.md` |
 | ESP32 device, LED behavior, Wi-Fi, on-device tide logic | `firmware/` | ESP32-S3, PlatformIO/Arduino, NeoPixel | `firmware/CLAUDE.md` |
@@ -96,13 +97,14 @@ Run each from its platform directory. Full details are in each platform's
 |---|---|---|---|---|
 | `backend/` | `go install github.com/99designs/gqlgen@v0.17.64`, then `rm -rf graph/generated graph/model && gqlgen generate` | `go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8 run --timeout=5m` | `go test -race ./...` (≥80% coverage enforced in CI) | `go build ./...` |
 | `web/` | `npm ci` | `npm run lint` | `npm test` | `npm run dev` (port 3000), `npm run build` |
+| `www/` | `npm ci` | `npm run lint` | `npm test` | none (static files in `www/site/`) |
 | `infra/terraform/` | `tflint --init` | `terraform fmt -check -recursive`, `tflint --recursive` | `terraform plan` from `environments/prod/` (read-only) | apply only via `deploy-infra.yml` |
 | `firmware/` | `cp src/config/wifi_credentials.h.template src/config/wifi_credentials.h` | none yet | none yet | `pio run`, `pio run -t upload`, `pio device monitor` |
 | repo root | | | `bash scripts/check-repo-rules.test.sh` | `bash scripts/check-repo-rules.sh` |
 
 CI is `.github/workflows/verify.yml`. It runs path-filtered jobs per
 platform, and `ci-gate` is the required check. Deploy workflows
-(`deploy-backend.yml`, `deploy-web.yml`, `deploy-infra.yml`) run automatically
+(`deploy-backend.yml`, `deploy-web.yml`, `deploy-www.yml`, `deploy-infra.yml`) run automatically
 on push to `main`, each filtered to its own platform directory (and its own
 workflow file), and can also be dispatched manually from `main`. Merging a PR
 therefore deploys the platforms it touched. Never dispatch one without the
@@ -126,6 +128,7 @@ Key decisions:
 - [0025: Serve the API as one GraphQL Lambda built with gqlgen](docs/decisions/0025-graphql-api-with-gqlgen.md)
 - [0026: The device is a thin GraphQL client and depends on fixed tide fields](docs/decisions/0026-device-graphql-contract.md)
 - [0004: Infra and application deploys are separate; Terraform ignores Lambda code](docs/decisions/0004-infra-and-app-deploys-are-separate.md)
+- [0035: The www landing page is its own static site and CloudFront distribution](docs/decisions/0035-www-landing-site.md)
 - [0015: The backend handles all tide times in the station's local zone](docs/decisions/0015-backend-times-in-station-local-zone.md)
 
 ## Adding a platform

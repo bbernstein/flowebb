@@ -7,7 +7,7 @@ when you make a choice a future reader might second-guess.
 Raw transcripts are never committed. Summarize the decision in your own words,
 and leave out personal or sensitive details.
 
-Records 0001 to 0034 were mined from the owner's claude.ai project history
+Records 0001 to 0035 were mined from the owner's claude.ai project history
 (November 2024 to January 2025) and the 2026 monorepo migration, then checked
 against the code at the time of writing. A **Note:** line marks anything
 uncertain: inferred alternatives, assistant estimates, or code that disagrees
@@ -42,6 +42,10 @@ Each record is listed once, under the platform it mainly constrains. Its
 - [0021: Logo is an animated SVG wordmark, "flow" rising and "ebb" receding](0021-animated-wordmark-logo.md). Accepted.
 - [0023: Tide chart "now" marker ticks each minute; range shifts every six hours](0023-tide-chart-live-now-marker.md). Accepted.
 - [0029: Picking a location always selects the nearest station](0029-auto-select-nearest-station.md). Accepted.
+
+### WWW
+
+- [0035: The www landing page is its own static site and CloudFront distribution](0035-www-landing-site.md). Accepted.
 
 ### Infra
 

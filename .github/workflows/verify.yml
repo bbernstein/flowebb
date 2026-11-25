@@ -20,6 +20,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       web: ${{ steps.filter.outputs.web }}
+      www: ${{ steps.filter.outputs.www }}
       infra: ${{ steps.filter.outputs.infra }}
       firmware: ${{ steps.filter.outputs.firmware }}
       workflows: ${{ steps.filter.outputs.workflows }}
@@ -34,6 +35,8 @@ jobs:
               - 'backend/**'
             web:
               - 'web/**'
+            www:
+              - 'www/**'
             infra:
               - 'infra/**'
             # Reserved for future firmware CI; no job consumes this yet.
@@ -191,6 +194,41 @@ jobs:
       - name: Build
         run: npm run build
 
+  www-test:
+    needs: changes
+    # Also runs on infra changes: the apex-redirect function test lives in infra/.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.www == 'true' ||
+      needs.changes.outputs.infra == 'true' ||
+      needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # html-validate needs Node ^22.22 or >=24.8; "22" resolves to the latest 22.x.
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: www/package-lock.json
+
+      - name: Install dependencies
+        working-directory: www
+        run: npm ci
+
+      - name: Lint HTML
+        working-directory: www
+        run: npm run lint
+
+      - name: Test landing page and deploy script
+        working-directory: www
+        run: npm test
+
+      - name: Test apex redirect function
+        run: node --test infra/terraform/modules/www_site/
+
   infra-lint:
     needs: changes
     if: >-
@@ -336,6 +374,7 @@ jobs:
       - backend-test
       - web-test
       - web-build
+      - www-test
       - infra-lint
       - infra-plan
       - secrets-scan
