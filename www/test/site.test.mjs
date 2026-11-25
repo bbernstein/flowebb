@@ -138,7 +138,7 @@ test("faq json-ld matches visible faq", () => {
 });
 
 test("page does not mention the device", () => {
-  assert.doesNotMatch(stripTags(readSite("index.html")), /\b(led|esp32|firmware|neopixel)\b/i);
+  assert.doesNotMatch(stripTags(readSite("index.html")), /\b(leds?|esp32|firmwares?|neopixels?)\b/i);
 });
 
 export { readSite, jsonLdBlocks, stripTags, metaContent };
