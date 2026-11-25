@@ -24,6 +24,13 @@ output "frontend_deployment_details" {
   }
 }
 
+output "www_deployment_details" {
+  value = {
+    bucket_name                = module.www_site.bucket_name
+    cloudfront_distribution_id = module.www_site.distribution_id
+  }
+}
+
 provider "aws" {
   region = var.aws_region
 }
@@ -105,6 +112,21 @@ module "edge_networking" {
     module.compute,
     module.base_networking
   ]
+}
+
+# Landing page for www.flowebb.com, with the apex redirecting to it
+module "www_site" {
+  source = "../../modules/www_site"
+
+  www_domain             = var.www_domain
+  apex_domain            = var.domain_name
+  project_name           = var.project_name
+  environment            = var.environment
+  certificate_arn        = module.base_networking.certificate_arn
+  route53_zone_id        = module.base_networking.route53_zone_id
+  cloudfront_logs_bucket = module.storage.cloudfront_logs_bucket
+
+  depends_on = [module.storage, module.base_networking]
 }
 
 # Create GitHub Actions IAM role last
