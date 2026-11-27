@@ -3,6 +3,8 @@
 
 #include <unity.h>
 
+#include <cmath>
+
 #include "models/TideExtreme.h"
 
 namespace {
@@ -86,6 +88,49 @@ void test_empty_input() {
     TEST_ASSERT_FALSE(hasTimestamp(lastPast));
 }
 
+void test_future_is_sorted_ascending() {
+    TideExtreme all[] = {ext(4000, true), ext(2000, false), ext(3000, true)};
+    TideExtreme lastPast;
+    TideExtreme future[kMaxFuture];
+    int n = splitTideExtremes(all, 3, 1000, lastPast, future, kMaxFuture);
+    TEST_ASSERT_EQUAL_INT(3, n);
+    TEST_ASSERT_EQUAL_INT64(2000, future[0].timestamp);
+    TEST_ASSERT_FALSE(future[0].isHigh);
+    TEST_ASSERT_EQUAL_INT64(3000, future[1].timestamp);
+    TEST_ASSERT_EQUAL_INT64(4000, future[2].timestamp);
+}
+
+void test_cap_keeps_earliest_when_unsorted() {
+    TideExtreme all[] = {ext(5000, true), ext(4000, false), ext(2000, true), ext(3000, false)};
+    TideExtreme lastPast;
+    TideExtreme future[2];
+    int n = splitTideExtremes(all, 4, 1000, lastPast, future, 2);
+    TEST_ASSERT_EQUAL_INT(2, n);
+    TEST_ASSERT_EQUAL_INT64(2000, future[0].timestamp);
+    TEST_ASSERT_EQUAL_INT64(3000, future[1].timestamp);
+}
+
+void test_parse_converts_ms_to_seconds_and_type() {
+    TideExtreme e;
+    TEST_ASSERT_TRUE(parseApiExtreme(1764259200000.0, 1.75, "\"HIGH\"", e));
+    TEST_ASSERT_EQUAL_INT64(1764259200, e.timestamp);
+    TEST_ASSERT_FLOAT_WITHIN(1e-6, 1.75f, e.height);
+    TEST_ASSERT_TRUE(e.isHigh);
+
+    TEST_ASSERT_TRUE(parseApiExtreme(1764281580000.0, -0.2, "\"LOW\"", e));
+    TEST_ASSERT_EQUAL_INT64(1764281580, e.timestamp);
+    TEST_ASSERT_FALSE(e.isHigh);
+}
+
+void test_parse_rejects_non_finite_or_missing() {
+    TideExtreme e;
+    TEST_ASSERT_FALSE(parseApiExtreme(NAN, 1.0, "\"HIGH\"", e));
+    TEST_ASSERT_FALSE(parseApiExtreme(INFINITY, 1.0, "\"HIGH\"", e));
+    TEST_ASSERT_FALSE(parseApiExtreme(1764259200000.0, NAN, "\"HIGH\"", e));
+    TEST_ASSERT_FALSE(parseApiExtreme(0.0, 1.0, "\"HIGH\"", e));  // 0 means unknown
+    TEST_ASSERT_FALSE(parseApiExtreme(1764259200000.0, 1.0, nullptr, e));
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_recent_past_extreme_is_found);
@@ -94,5 +139,9 @@ int main(int, char**) {
     RUN_TEST(test_no_past_extreme_clears_last_past);
     RUN_TEST(test_future_is_capped);
     RUN_TEST(test_empty_input);
+    RUN_TEST(test_future_is_sorted_ascending);
+    RUN_TEST(test_cap_keeps_earliest_when_unsorted);
+    RUN_TEST(test_parse_converts_ms_to_seconds_and_type);
+    RUN_TEST(test_parse_rejects_non_finite_or_missing);
     return UNITY_END();
 }

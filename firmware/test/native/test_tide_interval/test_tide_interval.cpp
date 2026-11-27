@@ -121,13 +121,27 @@ void test_progress_zero_length_interval_does_not_divide_by_zero() {
     TEST_ASSERT_FLOAT_WITHIN(1e-6, 1.0f, tideProgress(a, a, 1000));
 }
 
-void test_unknown_last_past_skips_first_interval() {
-    // With no known past extreme (timestamp 0), the first interval has no
-    // start, so the LED must not be driven from a made-up one.
+void test_unknown_last_past_estimates_first_interval_start() {
+    // With no known past extreme (timestamp 0) the LED should still show a
+    // color. The start is estimated as the opposite type, one interval (the
+    // gap between the first two stored extremes) before the first one.
     TideExtreme unknown = ext(0, false);
     TideExtreme extremes[] = {ext(2000, true), ext(3000, false)};
     TideInterval out;
-    TEST_ASSERT_FALSE(selectTideInterval(unknown, extremes, 2, 1500, out));
+    TEST_ASSERT_TRUE(selectTideInterval(unknown, extremes, 2, 1500, out));
+    TEST_ASSERT_EQUAL_INT64(1000, out.current.timestamp);
+    TEST_ASSERT_FALSE(out.current.isHigh);
+    TEST_ASSERT_EQUAL_INT64(2000, out.next.timestamp);
+    TEST_ASSERT_TRUE(out.next.isHigh);
+}
+
+void test_unknown_last_past_single_extreme_uses_typical_half_cycle() {
+    TideExtreme unknown = ext(0, false);
+    TideExtreme extremes[] = {ext(100000, false)};
+    TideInterval out;
+    TEST_ASSERT_TRUE(selectTideInterval(unknown, extremes, 1, 90000, out));
+    TEST_ASSERT_EQUAL_INT64(100000 - kTypicalTideHalfCycleSec, out.current.timestamp);
+    TEST_ASSERT_TRUE(out.current.isHigh);
 }
 
 void test_unknown_last_past_still_allows_later_intervals() {
@@ -154,7 +168,8 @@ int main(int, char**) {
     RUN_TEST(test_progress_start_middle_end);
     RUN_TEST(test_progress_is_clamped);
     RUN_TEST(test_progress_zero_length_interval_does_not_divide_by_zero);
-    RUN_TEST(test_unknown_last_past_skips_first_interval);
+    RUN_TEST(test_unknown_last_past_estimates_first_interval_start);
+    RUN_TEST(test_unknown_last_past_single_extreme_uses_typical_half_cycle);
     RUN_TEST(test_unknown_last_past_still_allows_later_intervals);
     return UNITY_END();
 }

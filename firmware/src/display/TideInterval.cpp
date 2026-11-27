@@ -7,10 +7,20 @@ bool selectTideInterval(const TideExtreme& lastPast, const TideExtreme* extremes
     // The next extreme is the first one at or after now.
     for (int i = 0; i < numExtremes; i++) {
         if (extremes[i].timestamp >= now) {
-            if (i == 0 && !hasTimestamp(lastPast)) {
-                return false;  // first interval has no known start
+            if (i > 0) {
+                out.current = extremes[i - 1];
+            } else if (hasTimestamp(lastPast)) {
+                out.current = lastPast;
+            } else {
+                // No known start: estimate one rather than leave the LED dark.
+                time_t span = kTypicalTideHalfCycleSec;
+                if (numExtremes >= 2 && extremes[1].timestamp > extremes[0].timestamp) {
+                    span = extremes[1].timestamp - extremes[0].timestamp;
+                }
+                out.current.timestamp = extremes[0].timestamp - span;
+                out.current.height = 0.0f;
+                out.current.isHigh = !extremes[0].isHigh;
             }
-            out.current = (i == 0) ? lastPast : extremes[i - 1];
             out.next = extremes[i];
             return true;
         }

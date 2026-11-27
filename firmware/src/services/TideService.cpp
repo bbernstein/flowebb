@@ -34,8 +34,8 @@ bool TideService::fetchTideData(TideData& tideData) {
     
     // Calculate time range
     time_t now = TimeService::getCurrentTime();
-    time_t startTime = now - (24 * 60 * 60); // 12 hours ago (reduced from 24)
-    time_t endTime = now + (24 * 5 * 60 * 60);   // 12 hours ahead
+    time_t startTime = now - (24 * 60 * 60);     // 24 hours ago
+    time_t endTime = now + (24 * 5 * 60 * 60);   // 5 days ahead
     
     String query = buildGraphQLQuery(startTime, endTime);
     if (ENABLE_DEBUG_PRINTS) {
@@ -184,14 +184,20 @@ void TideService::processTideExtremes(JSONVar& extremes, TideData& tideData, tim
         Serial.printf("Processing %d extremes...\n", total);
     }
 
-    // API timestamps are UTC epoch milliseconds; `now` is UTC epoch seconds.
+    // Entries with a missing or non-numeric field are skipped, so no NaN
+    // reaches a time_t cast.
     int count = 0;
     for (int i = 0; i < total && count < MAX_PARSED_EXTREMES; i++) {
-        parsed[count].timestamp = (time_t)((double)extremes[i]["timestamp"] / 1000);
-        parsed[count].height = (double)extremes[i]["height"];
-        String typeStr = JSON.stringify(extremes[i]["type"]);
-        parsed[count].isHigh = typeStr.indexOf("HIGH") != -1;
-        count++;
+        JSONVar entry = extremes[i];
+        if (JSON.typeof(entry["timestamp"]) != "number" ||
+            JSON.typeof(entry["height"]) != "number") {
+            continue;
+        }
+        String typeStr = JSON.stringify(entry["type"]);
+        if (parseApiExtreme((double)entry["timestamp"], (double)entry["height"],
+                            typeStr.c_str(), parsed[count])) {
+            count++;
+        }
     }
 
     tideData.numExtremes = splitTideExtremes(parsed, count, now, tideData.current,
