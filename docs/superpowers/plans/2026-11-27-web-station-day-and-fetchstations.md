@@ -126,7 +126,15 @@ before the fix.
   `error: error?.message || null`.
 - Remove the stale inline comment `// Use the state variable instead of data?.stations`.
 
-**Step 3: remove the workaround in `page.tsx`:**
+> **Ruling during execution (supersedes Step 3):** the existing `page.test.tsx`
+> test "runs the first-load logic once even if fetchStations changes identity"
+> pins the ref guard, and existing tests may not change without the owner's
+> approval. So `page.tsx` keeps `fetchStationsRef` and the `[]` deps. Only the
+> comment above the ref changed. Removing the guard is a possible follow-up
+> that needs the owner's OK. The commit subject became
+> `web: memoize fetchStations and the station context value (#4)`.
+
+**Step 3 (as originally planned, not done): remove the workaround in `page.tsx`:**
 - Delete the `fetchStationsRef` declaration, its sync `useEffect`, and the
   comment above them ("fetchStations gets a new identity on every
   StationProvider render…").
