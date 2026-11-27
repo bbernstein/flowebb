@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { gql, useQuery } from '@apollo/client';
 import { Station } from '@/types';
 
@@ -38,7 +38,7 @@ export const StationProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
     });
 
-    const fetchStations = async (lat: number, lon: number, limit?: number): Promise<Station[]> => {
+    const fetchStations = useCallback(async (lat: number, lon: number, limit?: number): Promise<Station[]> => {
         try {
             const result = await refetch({ lat, lon, limit });
             const newStations: Station[] = result.data.stations;
@@ -49,15 +49,18 @@ export const StationProvider: React.FC<{ children: React.ReactNode }> = ({ child
             // Rethrow so callers can tell a failed request from an empty result.
             throw err;
         }
-    };
+    }, [refetch]);
+
+    const errorMessage = error?.message;
+    const value = useMemo<StationContextType>(() => ({
+        stations,
+        loading,
+        error: errorMessage || null,
+        fetchStations
+    }), [stations, loading, errorMessage, fetchStations]);
 
     return (
-        <StationContext.Provider value={{
-            stations: stations,  // Use the state variable instead of data?.stations
-            loading,
-            error: error?.message || null,
-            fetchStations
-        }}>
+        <StationContext.Provider value={value}>
             {children}
         </StationContext.Provider>
     );

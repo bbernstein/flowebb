@@ -63,42 +63,42 @@ export interface DayBounds {
     endDateTime: string;
 }
 
+const MS_PER_HOUR = 60 * 60 * 1000;
+
 /**
- * Gets the start and end of a day in station's local time
+ * Gets the 48-hour window around a station's local day: from 12:00 (noon) on
+ * the day before to 12:00 on the day after, in the station's local time.
+ *
+ * Uses pure UTC arithmetic, so the browser's timezone (and its DST rules) never
+ * affects the result, and half-hour offsets are preserved.
+ *
  * @param timestamp Unix timestamp in milliseconds
- * @param offsetSeconds Timezone offset in seconds
- * @returns Object containing start and end times for the day
+ * @param offsetSeconds Station timezone offset from UTC in seconds
+ * @returns `startOfDay` / `endOfDay` are the real instants of the window edges;
+ *   `startDateTime` / `endDateTime` are station-local wall-clock strings
+ *   (YYYY-MM-DDTHH:mm:ss, no zone) as the API expects.
  */
 export const getStationDayBounds = (timestamp: number, offsetSeconds: number): DayBounds => {
-    // Create fake timezone using offset for date handling
-    const dateStr = new Date(timestamp).toISOString();
-    const localTime = new Date(dateStr);
-    localTime.setHours(localTime.getHours() + offsetSeconds / 3600);
+    const offsetMs = offsetSeconds * 1000;
+    // Station wall-clock time encoded as a UTC instant, so the UTC getters read
+    // the station's calendar fields and the browser's own zone never applies.
+    const stationWall = new Date(timestamp + offsetMs);
+    const midnightWallMs = Date.UTC(
+        stationWall.getUTCFullYear(),
+        stationWall.getUTCMonth(),
+        stationWall.getUTCDate()
+    );
+    const startWallMs = midnightWallMs - 12 * MS_PER_HOUR;
+    const endWallMs = startWallMs + 48 * MS_PER_HOUR;
 
-    // Set to midnight in the station's local time
-    const startOfDay = new Date(localTime);
-    startOfDay.setHours(0, 0, 0, 0);
-    startOfDay.setHours(startOfDay.getHours() - 12);
-
-    const endOfDay = new Date(startOfDay);
-    endOfDay.setHours(endOfDay.getHours() + 48);
-
-    // Format dates for API
-    const formatForApi = (date: Date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        const seconds = String(date.getSeconds()).padStart(2, '0');
-        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-    };
+    // YYYY-MM-DDTHH:mm:ss, station-local, no zone (what the API expects).
+    const formatForApi = (wallMs: number) => new Date(wallMs).toISOString().slice(0, 19);
 
     return {
-        startOfDay,
-        endOfDay,
-        startDateTime: formatForApi(startOfDay),
-        endDateTime: formatForApi(endOfDay)
+        startOfDay: new Date(startWallMs - offsetMs),
+        endOfDay: new Date(endWallMs - offsetMs),
+        startDateTime: formatForApi(startWallMs),
+        endDateTime: formatForApi(endWallMs),
     };
 };
 

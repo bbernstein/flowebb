@@ -74,13 +74,6 @@ export default function Home() {
     const [locationLoading, setLocationLoading] = useState(false);
     const { stations, fetchStations } = useStationContext();
 
-    // fetchStations gets a new identity on every StationProvider render. The
-    // first-load effect reads it through a ref so it runs only on mount.
-    const fetchStationsRef = useRef(fetchStations);
-    useEffect(() => {
-        fetchStationsRef.current = fetchStations;
-    }, [fetchStations]);
-
     // Set once the visitor picks a location themselves, so a late geolocation
     // answer does not move the map away from their choice.
     const userPickedLocation = useRef(false);
@@ -102,7 +95,7 @@ export default function Home() {
             setLocation(loc);
             setError("");
             try {
-                const newStations = await fetchStationsRef.current(loc.lat, loc.lon);
+                const newStations = await fetchStations(loc.lat, loc.lon);
                 if (cancelled || request !== latestRequest || userPickedLocation.current) {
                     return;
                 }
@@ -174,7 +167,8 @@ export default function Home() {
             cancelled = true;
             clearTimeout(fallbackTimer);
         };
-    }, []);
+        // fetchStations is memoized in StationProvider (issue #4), so this runs once on mount.
+    }, [fetchStations]);
 
     // Shows the nearest station for a location the visitor picked (decision 0029).
     const showNearest = (newStations: Station[]) => {
