@@ -133,6 +133,10 @@ before the fix.
 > comment above the ref changed. Removing the guard is a possible follow-up
 > that needs the owner's OK. The commit subject became
 > `web: memoize fetchStations and the station context value (#4)`.
+>
+> **Follow-up (owner approved, 2026-11-27):** the guard was then removed as in
+> Step 3. Its test was replaced by "runs the first-load logic once across
+> re-renders while fetchStations stays stable".
 
 **Step 3 (as originally planned, not done): remove the workaround in `page.tsx`:**
 - Delete the `fetchStationsRef` declaration, its sync `useEffect`, and the

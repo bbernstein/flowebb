@@ -377,15 +377,24 @@ describe("Home first load", () => {
         expect(screen.getByRole("alert")).toHaveTextContent("Geolocation is not supported");
     });
 
-    it("runs the first-load logic once even if fetchStations changes identity", async () => {
+    it("runs the first-load logic once across re-renders while fetchStations stays stable", async () => {
+        // StationProvider memoizes fetchStations (issue #4), so a provider update
+        // changes stations but keeps the same function.
         mockedLocationGet.mockReturnValue({ lat: 47.2, lon: -122.4 });
         const { rerender } = render(<Home/>);
         await screen.findByTestId("map");
+        await waitFor(() => expect(fetchStations).toHaveBeenCalledTimes(1));
 
-        setupStations([nearest, second]);
+        mockedUseStationContext.mockReturnValue({
+            stations: [nearest, second],
+            loading: false,
+            error: null,
+            fetchStations,
+        });
         rerender(<Home/>);
 
         await waitFor(() => expect(screen.getByTestId("map")).toBeInTheDocument());
         expect(mockedLocationGet).toHaveBeenCalledTimes(1);
+        expect(fetchStations).toHaveBeenCalledTimes(1);
     });
 });
