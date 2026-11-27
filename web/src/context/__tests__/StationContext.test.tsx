@@ -84,6 +84,30 @@ describe("StationContext.fetchStations", () => {
         });
     });
 
+    it("keeps fetchStations and the context value stable across provider re-renders", async () => {
+        const { result, rerender } = renderWith([
+            {
+                request: { query: QUERY, variables: { lat: 47.6, lon: -122.3 } },
+                result: { data: { stations: [station] } },
+            },
+        ]);
+
+        const initialFetchStations = result.current.fetchStations;
+
+        await act(async () => {
+            await result.current.fetchStations(47.6, -122.3);
+        });
+
+        // Fetching updated the stations state, which re-rendered the provider.
+        expect(result.current.stations).toEqual([station]);
+        expect(result.current.fetchStations).toBe(initialFetchStations);
+
+        const valueAfterFetch = result.current;
+        rerender();
+        expect(result.current.fetchStations).toBe(initialFetchStations);
+        expect(result.current).toBe(valueAfterFetch);
+    });
+
     it("throws when used outside a StationProvider", () => {
         expect(() => renderHook(() => useStationContext())).toThrow(
             "useStationContext must be used within a StationProvider"

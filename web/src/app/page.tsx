@@ -74,8 +74,9 @@ export default function Home() {
     const [locationLoading, setLocationLoading] = useState(false);
     const { stations, fetchStations } = useStationContext();
 
-    // fetchStations gets a new identity on every StationProvider render. The
-    // first-load effect reads it through a ref so it runs only on mount.
+    // fetchStations is memoized in StationProvider (issue #4), but the first-load
+    // effect still reads it through a ref, so it can only ever run on mount, even
+    // if the identity were to change.
     const fetchStationsRef = useRef(fetchStations);
     useEffect(() => {
         fetchStationsRef.current = fetchStations;
