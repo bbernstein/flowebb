@@ -99,7 +99,7 @@ Run each from its platform directory. Full details are in each platform's
 | `web/` | `npm ci` | `npm run lint` | `npm test` | `npm run dev` (port 3000), `npm run build` |
 | `www/` | `npm ci` | `npm run lint` | `npm test` | none (static files in `www/site/`) |
 | `infra/terraform/` | `tflint --init` | `terraform fmt -check -recursive`, `tflint --recursive` | `terraform plan` from `environments/prod/` (read-only) | apply only via `deploy-infra.yml` |
-| `firmware/` | `cp src/config/wifi_credentials.h.template src/config/wifi_credentials.h` | none yet | none yet | `pio run`, `pio run -t upload`, `pio device monitor` |
+| `firmware/` | `cp src/config/wifi_credentials.h.template src/config/wifi_credentials.h` | none yet | `pio test -e native` (host tests) | `pio run`, `pio run -t upload`, `pio device monitor` |
 | repo root | | | `bash scripts/check-repo-rules.test.sh` | `bash scripts/check-repo-rules.sh` |
 
 CI is `.github/workflows/verify.yml`. It runs path-filtered jobs per

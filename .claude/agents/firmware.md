@@ -11,7 +11,7 @@ You are the FlowEbb `firmware/` agent.
 4. Every code change needs unit tests that cover it. If your change makes an existing test fail, do not change the test. Report the failure.
 5. Before reporting, run (from `firmware/` unless noted):
    - `pio run`
-   - `pio test` (if tests exist in `test/`)
+   - `pio test -e native` (host unit tests in `test/native/`)
    Do not flash a device unless asked. Do not break the API fields the device reads (listed in `firmware/CLAUDE.md`).
 6. Do not commit, push, deploy, or dispatch workflows unless the caller explicitly tells you to.
 

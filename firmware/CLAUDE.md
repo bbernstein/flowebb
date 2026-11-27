@@ -23,7 +23,7 @@ Read the root `CLAUDE.md` first. Run every command below from `firmware/`.
 | `src/models/`, `src/storage/`, `src/utils/` | tide data model, Preferences storage, helpers |
 | `src/config/config.h` | station ID, location, timing, LED settings (committed) |
 | `src/config/wifi_credentials.h.template` | template for Wi-Fi credentials and `TIDE_API_ENDPOINT` |
-| `test/` | PlatformIO unit tests (none yet) |
+| `test/native/` | host-side Unity tests for hardware-independent logic (`pio test -e native`) |
 
 ## Commands
 
@@ -34,12 +34,17 @@ cp src/config/wifi_credentials.h.template src/config/wifi_credentials.h
 pio run                  # build
 pio run -t upload        # flash a connected device
 pio device monitor       # serial monitor (115200 baud)
-pio test                 # run unit tests in test/ (when present)
+pio test -e native       # host-side unit tests in test/native/ (no device needed)
 ```
 
+`pio run` builds only the ESP32 env (`default_envs`). The `native` env compiles
+just the pure sources listed in its `build_src_filter` (today
+`src/display/TideInterval.cpp`). Code in that list must not include
+`Arduino.h`; put the testable logic there and keep the Arduino glue thin.
+
 The API endpoint is `TIDE_API_ENDPOINT` (`https://api.flowebb.com/graphql`) in
-`src/config/`. CI does not build firmware yet, so run `pio run` yourself before
-reporting.
+`src/config/`. CI runs `pio test -e native` (the `firmware-test` job) but does
+not build the ESP32 image, so run `pio run` yourself before reporting.
 
 ## Rules
 
