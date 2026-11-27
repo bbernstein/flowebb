@@ -7,6 +7,9 @@ bool selectTideInterval(const TideExtreme& lastPast, const TideExtreme* extremes
     // The next extreme is the first one at or after now.
     for (int i = 0; i < numExtremes; i++) {
         if (extremes[i].timestamp >= now) {
+            if (i == 0 && !hasTimestamp(lastPast)) {
+                return false;  // first interval has no known start
+            }
             out.current = (i == 0) ? lastPast : extremes[i - 1];
             out.next = extremes[i];
             return true;

@@ -173,53 +173,32 @@ String TideService::buildGraphQLQuery(time_t startTime, time_t endTime) {
 }
 
 void TideService::processTideExtremes(JSONVar& extremes, TideData& tideData, time_t now) {
-    // Find most recent past extreme
-    int mostRecentPastIndex = -1;
-    time_t now_utc = now + GMT_OFFSET_SEC + DAYLIGHT_OFFSET_SEC;
-    
+    // The request spans about six days (one back, five ahead), at roughly
+    // four extremes a day. Extremes past this buffer are dropped. It is static
+    // to keep about 1 KB off the stack during the TLS request.
+    static const int MAX_PARSED_EXTREMES = 64;
+    static TideExtreme parsed[MAX_PARSED_EXTREMES];
+
+    int total = (int)extremes.length();
     if (ENABLE_DEBUG_PRINTS) {
-        Serial.printf("Processing %d extremes...\n", (int)extremes.length());
-    }
-    
-    for (int i = 0; i < extremes.length(); i++) {
-        double rawTimestamp = (double)extremes[i]["timestamp"];
-        time_t timestamp = (time_t)(rawTimestamp / 1000) - GMT_OFFSET_SEC - DAYLIGHT_OFFSET_SEC;
-        if (timestamp <= now) {
-            if (mostRecentPastIndex == -1 || 
-                timestamp > (time_t)((double)extremes[mostRecentPastIndex]["timestamp"] / 1000) - GMT_OFFSET_SEC - DAYLIGHT_OFFSET_SEC) {
-                mostRecentPastIndex = i;
-            }
-        }
+        Serial.printf("Processing %d extremes...\n", total);
     }
 
-    // Store most recent past extreme
-    if (mostRecentPastIndex != -1) {
-        if (ENABLE_DEBUG_PRINTS) {
-            Serial.println("Found recent past extreme");
-        }
-        time_t timestamp = (time_t)((double)extremes[mostRecentPastIndex]["timestamp"] / 1000);
-        tideData.current.timestamp = timestamp;
-        tideData.current.height = (double)extremes[mostRecentPastIndex]["height"];
-        String typeStr = JSON.stringify(extremes[mostRecentPastIndex]["type"]);
-        tideData.current.isHigh = typeStr.indexOf("HIGH") != -1;
+    // API timestamps are UTC epoch milliseconds; `now` is UTC epoch seconds.
+    int count = 0;
+    for (int i = 0; i < total && count < MAX_PARSED_EXTREMES; i++) {
+        parsed[count].timestamp = (time_t)((double)extremes[i]["timestamp"] / 1000);
+        parsed[count].height = (double)extremes[i]["height"];
+        String typeStr = JSON.stringify(extremes[i]["type"]);
+        parsed[count].isHigh = typeStr.indexOf("HIGH") != -1;
+        count++;
     }
 
-    // Store future extremes
+    tideData.numExtremes = splitTideExtremes(parsed, count, now, tideData.current,
+                                             tideData.extremes, MAX_EXTREMES);
+
     if (ENABLE_DEBUG_PRINTS) {
-        Serial.println("Processing future extremes...");
-    }
-    tideData.numExtremes = 0;
-    for (int i = 0; i < extremes.length() && tideData.numExtremes < MAX_EXTREMES; i++) {
-        time_t timestamp = (time_t)((double)extremes[i]["timestamp"] / 1000);
-        if (timestamp > now) {
-            tideData.extremes[tideData.numExtremes].timestamp = timestamp;
-            tideData.extremes[tideData.numExtremes].height = (double)extremes[i]["height"];
-            String typeStr = JSON.stringify(extremes[i]["type"]);
-            tideData.extremes[tideData.numExtremes].isHigh = typeStr.indexOf("HIGH") != -1;
-            tideData.numExtremes++;
-        }
-    }
-    if (ENABLE_DEBUG_PRINTS) {
+        Serial.printf("Recent past extreme: %s\n", hasTimestamp(tideData.current) ? "found" : "none");
         Serial.printf("Stored %d future extremes\n", tideData.numExtremes);
     }
 }

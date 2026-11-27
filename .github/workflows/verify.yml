@@ -247,7 +247,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install PlatformIO
-        run: pip install platformio
+        run: pip install platformio==6.2.0
 
       # Host-side unit tests only. The ESP32 build is not run in CI because it
       # needs the gitignored wifi_credentials.h and a large toolchain download.

@@ -121,6 +121,24 @@ void test_progress_zero_length_interval_does_not_divide_by_zero() {
     TEST_ASSERT_FLOAT_WITHIN(1e-6, 1.0f, tideProgress(a, a, 1000));
 }
 
+void test_unknown_last_past_skips_first_interval() {
+    // With no known past extreme (timestamp 0), the first interval has no
+    // start, so the LED must not be driven from a made-up one.
+    TideExtreme unknown = ext(0, false);
+    TideExtreme extremes[] = {ext(2000, true), ext(3000, false)};
+    TideInterval out;
+    TEST_ASSERT_FALSE(selectTideInterval(unknown, extremes, 2, 1500, out));
+}
+
+void test_unknown_last_past_still_allows_later_intervals() {
+    TideExtreme unknown = ext(0, false);
+    TideExtreme extremes[] = {ext(2000, true), ext(3000, false)};
+    TideInterval out;
+    TEST_ASSERT_TRUE(selectTideInterval(unknown, extremes, 2, 2500, out));
+    TEST_ASSERT_EQUAL_INT64(2000, out.current.timestamp);
+    TEST_ASSERT_EQUAL_INT64(3000, out.next.timestamp);
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_no_extremes_returns_false);
@@ -136,5 +154,7 @@ int main(int, char**) {
     RUN_TEST(test_progress_start_middle_end);
     RUN_TEST(test_progress_is_clamped);
     RUN_TEST(test_progress_zero_length_interval_does_not_divide_by_zero);
+    RUN_TEST(test_unknown_last_past_skips_first_interval);
+    RUN_TEST(test_unknown_last_past_still_allows_later_intervals);
     return UNITY_END();
 }

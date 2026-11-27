@@ -66,6 +66,7 @@ Each record is listed once, under the platform it mainly constrains. Its
 - [0027: Deep sleep must keep a programming-mode escape (GPIO0)](0027-deep-sleep-programming-guard.md). Partly superseded (deep sleep is off in current code; the guard rule stands).
 - [0031: The LED color tracks tide level, red at low water and green at high, with a faint blue wave](0031-led-color-semantics.md). Accepted.
 - [0032: Battery power: 2xAA through a boost converter, sized by duty cycle](0032-battery-power-budget.md). Accepted (hardware recommendation).
+- [0037: Firmware logic is unit-tested on the host through a native PlatformIO env](0037-firmware-host-unit-tests.md). Accepted.
 
 ### Cross-cutting
 

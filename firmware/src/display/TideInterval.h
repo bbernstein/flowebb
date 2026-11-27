@@ -14,8 +14,9 @@ struct TideInterval {
 // before the stored ones (TideData::current); `extremes` are the stored future
 // extremes in ascending time order. Interval ends are inclusive, so the final
 // interval runs up to and including the last stored extreme.
-// Returns false (leaving `out` unchanged) when there are no extremes or `now`
-// is past the last one; the caller should keep the LED as is until new data.
+// Returns false (leaving `out` unchanged) when there are no extremes, when
+// `now` is past the last one, or when `now` is in the first interval and
+// `lastPast` is unknown (timestamp 0). The caller then keeps the LED as is.
 bool selectTideInterval(const TideExtreme& lastPast, const TideExtreme* extremes,
                         int numExtremes, time_t now, TideInterval& out);
 

@@ -39,8 +39,10 @@ pio test -e native       # host-side unit tests in test/native/ (no device neede
 
 `pio run` builds only the ESP32 env (`default_envs`). The `native` env compiles
 just the pure sources listed in its `build_src_filter` (today
-`src/display/TideInterval.cpp`). Code in that list must not include
-`Arduino.h`; put the testable logic there and keep the Arduino glue thin.
+`src/display/TideInterval.cpp` and `src/models/TideExtreme.cpp`). Code in that
+list must not include `Arduino.h`; put the testable logic there and keep the
+Arduino glue thin. See
+[0037](../docs/decisions/0037-firmware-host-unit-tests.md).
 
 The API endpoint is `TIDE_API_ENDPOINT` (`https://api.flowebb.com/graphql`) in
 `src/config/`. CI runs `pio test -e native` (the `firmware-test` job) but does
@@ -78,4 +80,5 @@ Key decisions:
 - [0031: The LED color tracks tide level, red at low water and green at high, with a faint blue wave](../docs/decisions/0031-led-color-semantics.md)
 - [0027: Deep sleep must keep a programming-mode escape (GPIO0)](../docs/decisions/0027-deep-sleep-programming-guard.md)
 - [0022: Firmware is split into config, models, services, storage, display and utils](../docs/decisions/0022-firmware-module-layout.md)
+- [0037: Firmware logic is unit-tested on the host through a native PlatformIO env](../docs/decisions/0037-firmware-host-unit-tests.md)
 - [0032: Battery power: 2xAA through a boost converter, sized by duty cycle](../docs/decisions/0032-battery-power-budget.md)
