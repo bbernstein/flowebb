@@ -42,6 +42,7 @@ int splitTideExtremes(const TideExtreme* all, int count, time_t now,
         // Insert in ascending order, keeping the earliest maxFuture.
         int pos = numFuture;
         while (pos > 0 && future[pos - 1].timestamp > e.timestamp) pos--;
+        if (pos > 0 && future[pos - 1].timestamp == e.timestamp) continue;  // duplicate
         if (pos >= maxFuture) continue;
         int last = (numFuture < maxFuture) ? numFuture : maxFuture - 1;
         for (int j = last; j > pos; j--) future[j] = future[j - 1];

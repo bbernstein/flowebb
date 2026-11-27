@@ -39,8 +39,9 @@ pio test -e native       # host-side unit tests in test/native/ (no device neede
 
 `pio run` builds only the ESP32 env (`default_envs`). The `native` env compiles
 just the pure sources listed in its `build_src_filter` (today
-`src/display/TideInterval.cpp` and `src/models/TideExtreme.cpp`). Code in that
-list must not include `Arduino.h`; put the testable logic there and keep the
+`src/display/TideInterval.cpp` and `src/models/TideExtreme.cpp`; header-only
+`src/services/ClockSync.h` needs no entry). Code in that list must not include
+`Arduino.h`; put the testable logic there and keep the
 Arduino glue thin. See
 [0037](../docs/decisions/0037-firmware-host-unit-tests.md).
 

@@ -16,8 +16,8 @@ CI cannot flash hardware.
 ## Decision
 
 - Hardware-independent logic goes in pure source files that do not include
-  `Arduino.h` (today `src/display/TideInterval.*` and
-  `src/models/TideExtreme.*`). The Arduino classes (`LedController`,
+  `Arduino.h` (today `src/display/TideInterval.*`,
+  `src/models/TideExtreme.*`, and the header-only `src/services/ClockSync.h`). The Arduino classes (`LedController`,
   `TideService`) stay thin and call into them.
 - `platformio.ini` has a `native` env (`platform = native`, pinned) that
   compiles only the pure files listed in its `build_src_filter`, with Unity
@@ -28,8 +28,8 @@ CI cannot flash hardware.
 - CI job `firmware-test` in `verify.yml` runs `pio test -e native` with a
   pinned PlatformIO, and is part of `ci-gate`. CI does not build the ESP32
   image, because that needs the gitignored `wifi_credentials.h`.
-- A new pure file must be added to `build_src_filter`, or its tests will not
-  link.
+- A new pure `.cpp` file must be added to `build_src_filter`, or its tests
+  will not link. Header-only helpers need no entry.
 
 ## Alternatives rejected
 

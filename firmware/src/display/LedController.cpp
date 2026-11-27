@@ -39,9 +39,12 @@ void LedController::updateDisplay(const TideData& tideData) {
 
     // Find the interval containing now. Past the last stored extreme there is
     // nothing to show; keep the LED as is until new tide data arrives.
+    // Clamp in case cached data holds a bad count (see issue #19).
+    int numExtremes = tideData.numExtremes;
+    if (numExtremes > MAX_EXTREMES) numExtremes = MAX_EXTREMES;
     TideInterval interval;
     if (!selectTideInterval(tideData.current, tideData.extremes,
-                            tideData.numExtremes, now, interval)) {
+                            numExtremes, now, interval)) {
         return;
     }
     const TideExtreme& currentExtreme = interval.current;

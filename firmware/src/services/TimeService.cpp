@@ -15,6 +15,18 @@ void TimeService::initialize() {
     Serial.printf("Current time: %s\n", formatLocalTime().c_str());
 }
 
+bool TimeService::waitForSync(uint32_t timeoutMs) {
+    unsigned long start = millis();
+    while (!isClockSet(time(nullptr))) {
+        if (millis() - start >= timeoutMs) {
+            Serial.println("NTP sync timed out");
+            return false;
+        }
+        delay(100);
+    }
+    return true;
+}
+
 String TimeService::formatSecondsToTime(unsigned long totalSeconds) {
     if (totalSeconds > 31536000) {
         totalSeconds = totalSeconds % 86400;

@@ -7,6 +7,7 @@ bool selectTideInterval(const TideExtreme& lastPast, const TideExtreme* extremes
     // The next extreme is the first one at or after now.
     for (int i = 0; i < numExtremes; i++) {
         if (extremes[i].timestamp >= now) {
+            out.next = extremes[i];
             if (i > 0) {
                 out.current = extremes[i - 1];
             } else if (hasTimestamp(lastPast)) {
@@ -21,7 +22,11 @@ bool selectTideInterval(const TideExtreme& lastPast, const TideExtreme* extremes
                 out.current.height = 0.0f;
                 out.current.isHigh = !extremes[0].isHigh;
             }
-            out.next = extremes[i];
+            // Highs and lows alternate. If a bad entry was dropped and two of
+            // a kind are adjacent, the water is still heading toward `next`.
+            if (out.current.isHigh == out.next.isHigh) {
+                out.current.isHigh = !out.next.isHigh;
+            }
             return true;
         }
     }

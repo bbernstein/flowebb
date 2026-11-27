@@ -110,6 +110,18 @@ void test_cap_keeps_earliest_when_unsorted() {
     TEST_ASSERT_EQUAL_INT64(3000, future[1].timestamp);
 }
 
+void test_duplicate_future_timestamps_are_dropped() {
+    // Overlapping station-day records can repeat an extreme; a duplicate would
+    // become a zero-length interval.
+    TideExtreme all[] = {ext(2000, false), ext(2000, false), ext(3000, true)};
+    TideExtreme lastPast;
+    TideExtreme future[kMaxFuture];
+    int n = splitTideExtremes(all, 3, 1000, lastPast, future, kMaxFuture);
+    TEST_ASSERT_EQUAL_INT(2, n);
+    TEST_ASSERT_EQUAL_INT64(2000, future[0].timestamp);
+    TEST_ASSERT_EQUAL_INT64(3000, future[1].timestamp);
+}
+
 void test_parse_converts_ms_to_seconds_and_type() {
     TideExtreme e;
     TEST_ASSERT_TRUE(parseApiExtreme(1764259200000.0, 1.75, "\"HIGH\"", e));
@@ -167,6 +179,7 @@ int main(int, char**) {
     RUN_TEST(test_empty_input);
     RUN_TEST(test_future_is_sorted_ascending);
     RUN_TEST(test_cap_keeps_earliest_when_unsorted);
+    RUN_TEST(test_duplicate_future_timestamps_are_dropped);
     RUN_TEST(test_parse_converts_ms_to_seconds_and_type);
     RUN_TEST(test_parse_rejects_non_finite_or_missing);
     RUN_TEST(test_parse_rejects_unknown_type);

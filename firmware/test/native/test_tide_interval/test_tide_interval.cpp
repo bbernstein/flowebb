@@ -153,6 +153,26 @@ void test_unknown_last_past_still_allows_later_intervals() {
     TEST_ASSERT_EQUAL_INT64(3000, out.next.timestamp);
 }
 
+void test_same_type_neighbors_fade_toward_next() {
+    // A dropped entry (e.g. an extreme with an empty type) can leave two
+    // highs adjacent. The water is heading toward `next`, so `current` takes
+    // the opposite type and the LED fades the right way.
+    TideExtreme extremes[] = {ext(2000, true), ext(4000, true)};
+    TideInterval out;
+    TEST_ASSERT_TRUE(selectTideInterval(kLastPast, extremes, 2, 3000, out));
+    TEST_ASSERT_EQUAL_INT64(2000, out.current.timestamp);
+    TEST_ASSERT_FALSE(out.current.isHigh);
+    TEST_ASSERT_TRUE(out.next.isHigh);
+}
+
+void test_same_type_last_past_fades_toward_next() {
+    TideExtreme lastPast = ext(1000, true);
+    TideExtreme extremes[] = {ext(2000, true)};
+    TideInterval out;
+    TEST_ASSERT_TRUE(selectTideInterval(lastPast, extremes, 1, 1500, out));
+    TEST_ASSERT_FALSE(out.current.isHigh);
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_no_extremes_returns_false);
@@ -171,5 +191,7 @@ int main(int, char**) {
     RUN_TEST(test_unknown_last_past_estimates_first_interval_start);
     RUN_TEST(test_unknown_last_past_single_extreme_uses_typical_half_cycle);
     RUN_TEST(test_unknown_last_past_still_allows_later_intervals);
+    RUN_TEST(test_same_type_neighbors_fade_toward_next);
+    RUN_TEST(test_same_type_last_past_fades_toward_next);
     return UNITY_END();
 }

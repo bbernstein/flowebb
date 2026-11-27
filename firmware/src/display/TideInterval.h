@@ -20,6 +20,8 @@ struct TideInterval {
 // If `lastPast` is unknown (timestamp 0) and `now` is in the first interval,
 // the start is estimated: the opposite type, one interval before the first
 // stored extreme (the gap to the second one, or a typical half tide cycle).
+// `out.current.isHigh` is always the opposite of `out.next.isHigh`, so the
+// fade heads toward `next` even if a dropped entry left two of a kind adjacent.
 // Returns false (leaving `out` unchanged) when there are no extremes or `now`
 // is past the last one; the caller then keeps the LED as is. The caller must
 // also check isClockSet(now) first: this function trusts `now`.

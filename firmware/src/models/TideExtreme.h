@@ -27,7 +27,8 @@ bool parseApiExtreme(double timestampMs, double height, const char* typeJson,
 // Splits extremes from the API into the most recent one at or before `now`
 // (written to `lastPast`, or zeroed when there is none) and the ones after
 // `now`. The future ones are copied to `future` in ascending time order: the
-// earliest `maxFuture` of them if there are more. All times
+// earliest `maxFuture` of them if there are more. Repeated timestamps are
+// kept once. All times
 // are UTC epoch seconds, the same base as time(nullptr) and the API.
 // Returns how many future extremes were written.
 int splitTideExtremes(const TideExtreme* all, int count, time_t now,

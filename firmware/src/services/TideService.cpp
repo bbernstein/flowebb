@@ -8,6 +8,14 @@
 #include "WiFiService.h"
 
 bool TideService::fetchTideData(TideData& tideData) {
+    if (!isClockSet(TimeService::getCurrentTime())) {
+        // A 1970 clock would request the wrong window and mark every extreme
+        // as future; never let that replace good cached data.
+        if (ENABLE_DEBUG_PRINTS) {
+            Serial.println("Clock not set; skipping tide fetch");
+        }
+        return false;
+    }
     if (!WiFiService::isConnected()) {
         if (ENABLE_DEBUG_PRINTS) {
             Serial.println("WiFi not connected");
