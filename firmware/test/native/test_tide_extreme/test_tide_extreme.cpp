@@ -131,6 +131,32 @@ void test_parse_rejects_non_finite_or_missing() {
     TEST_ASSERT_FALSE(parseApiExtreme(1764259200000.0, 1.0, nullptr, e));
 }
 
+void test_parse_rejects_unknown_type() {
+    // A null or odd type must not silently become LOW.
+    TideExtreme e;
+    TEST_ASSERT_FALSE(parseApiExtreme(1764259200000.0, 1.0, "null", e));
+    TEST_ASSERT_FALSE(parseApiExtreme(1764259200000.0, 1.0, "\"\"", e));
+    TEST_ASSERT_FALSE(parseApiExtreme(1764259200000.0, 1.0, "\"SLACK\"", e));
+    TEST_ASSERT_FALSE(parseApiExtreme(1764259200000.0, 1.0, "HIGH", e));  // unquoted
+}
+
+void test_parse_rejects_out_of_range_timestamp() {
+    TideExtreme e;
+    TEST_ASSERT_FALSE(parseApiExtreme(-1000.0, 1.0, "\"HIGH\"", e));
+    TEST_ASSERT_FALSE(parseApiExtreme(1e20, 1.0, "\"HIGH\"", e));
+    // Past the 32-bit time_t limit (2038) is rejected even where time_t is 64-bit.
+    TEST_ASSERT_FALSE(parseApiExtreme(2147483648000.0, 1.0, "\"HIGH\"", e));
+    TEST_ASSERT_TRUE(parseApiExtreme(2147483647000.0, 1.0, "\"HIGH\"", e));
+}
+
+void test_clock_set_threshold() {
+    TEST_ASSERT_FALSE(isClockSet(0));
+    TEST_ASSERT_FALSE(isClockSet(86400));  // a day after boot with no NTP
+    TEST_ASSERT_FALSE(isClockSet(kMinValidEpochSec - 1));
+    TEST_ASSERT_TRUE(isClockSet(kMinValidEpochSec));
+    TEST_ASSERT_TRUE(isClockSet(1764259200));  // 2025-11-27
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_recent_past_extreme_is_found);
@@ -143,5 +169,8 @@ int main(int, char**) {
     RUN_TEST(test_cap_keeps_earliest_when_unsorted);
     RUN_TEST(test_parse_converts_ms_to_seconds_and_type);
     RUN_TEST(test_parse_rejects_non_finite_or_missing);
+    RUN_TEST(test_parse_rejects_unknown_type);
+    RUN_TEST(test_parse_rejects_out_of_range_timestamp);
+    RUN_TEST(test_clock_set_threshold);
     return UNITY_END();
 }

@@ -184,13 +184,14 @@ void TideService::processTideExtremes(JSONVar& extremes, TideData& tideData, tim
         Serial.printf("Processing %d extremes...\n", total);
     }
 
-    // Entries with a missing or non-numeric field are skipped, so no NaN
-    // reaches a time_t cast.
+    // Entries with a missing or wrongly typed field are skipped, so no NaN
+    // reaches a time_t cast; parseApiExtreme also rejects unknown types.
     int count = 0;
     for (int i = 0; i < total && count < MAX_PARSED_EXTREMES; i++) {
         JSONVar entry = extremes[i];
         if (JSON.typeof(entry["timestamp"]) != "number" ||
-            JSON.typeof(entry["height"]) != "number") {
+            JSON.typeof(entry["height"]) != "number" ||
+            JSON.typeof(entry["type"]) != "string") {
             continue;
         }
         String typeStr = JSON.stringify(entry["type"]);

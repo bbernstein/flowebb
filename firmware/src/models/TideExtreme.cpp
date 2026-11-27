@@ -8,11 +8,22 @@ bool parseApiExtreme(double timestampMs, double height, const char* typeJson,
     if (!std::isfinite(timestampMs) || !std::isfinite(height) || typeJson == nullptr) {
         return false;
     }
-    time_t ts = (time_t)(timestampMs / 1000);
-    if (ts == 0) return false;  // 0 is the "unknown" marker
-    out.timestamp = ts;
+    // Range-check before the cast: an out-of-range double-to-integer cast is
+    // undefined behavior, and the ESP32's time_t is 32-bit.
+    const double seconds = timestampMs / 1000.0;
+    if (!(seconds >= 1.0 && seconds < 2147483648.0)) return false;
+
+    bool isHigh;
+    if (std::strcmp(typeJson, "\"HIGH\"") == 0) {
+        isHigh = true;
+    } else if (std::strcmp(typeJson, "\"LOW\"") == 0) {
+        isHigh = false;
+    } else {
+        return false;  // null, empty, or an unknown type: do not guess
+    }
+    out.timestamp = (time_t)seconds;
     out.height = (float)height;
-    out.isHigh = std::strstr(typeJson, "HIGH") != nullptr;
+    out.isHigh = isHigh;
     return true;
 }
 

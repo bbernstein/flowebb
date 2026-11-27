@@ -11,10 +11,16 @@ struct TideExtreme {
 // True when the extreme holds a real time (timestamp 0 marks it unknown).
 inline bool hasTimestamp(const TideExtreme& e) { return e.timestamp != 0; }
 
+// 2024-01-01T00:00:00Z. Before NTP sync, time(nullptr) counts from about 0,
+// so anything earlier means the device clock has not been set.
+const time_t kMinValidEpochSec = 1704067200;
+inline bool isClockSet(time_t now) { return now >= kMinValidEpochSec; }
+
 // Builds an extreme from one API entry: `timestampMs` is UTC epoch
 // milliseconds, and `typeJson` is the JSON-stringified type ("\"HIGH\"" or
-// "\"LOW\""). Returns false, leaving `out` unchanged, when the timestamp or
-// height is not finite, the timestamp is 0, or the type is missing.
+// "\"LOW\""). Returns false, leaving `out` unchanged, when the height is not
+// finite, the timestamp is not in (0, 2^31) seconds (the 32-bit time_t range
+// on the ESP32), or the type is not exactly "\"HIGH\"" or "\"LOW\"".
 bool parseApiExtreme(double timestampMs, double height, const char* typeJson,
                      TideExtreme& out);
 

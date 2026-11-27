@@ -31,6 +31,12 @@ void LedController::updateDisplay(const TideData& tideData) {
     
     time_t now = TimeService::getCurrentTime();
 
+    // Before NTP sync (e.g. cold boot without Wi-Fi) the clock reads near
+    // 1970. Any color drawn from cached extremes would then be a guess.
+    if (!isClockSet(now)) {
+        return;
+    }
+
     // Find the interval containing now. Past the last stored extreme there is
     // nothing to show; keep the LED as is until new tide data arrives.
     TideInterval interval;

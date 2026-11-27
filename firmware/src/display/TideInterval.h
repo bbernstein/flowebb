@@ -21,7 +21,8 @@ struct TideInterval {
 // the start is estimated: the opposite type, one interval before the first
 // stored extreme (the gap to the second one, or a typical half tide cycle).
 // Returns false (leaving `out` unchanged) when there are no extremes or `now`
-// is past the last one; the caller then keeps the LED as is.
+// is past the last one; the caller then keeps the LED as is. The caller must
+// also check isClockSet(now) first: this function trusts `now`.
 bool selectTideInterval(const TideExtreme& lastPast, const TideExtreme* extremes,
                         int numExtremes, time_t now, TideInterval& out);
 
