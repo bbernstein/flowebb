@@ -122,6 +122,31 @@ void test_duplicate_future_timestamps_are_dropped() {
     TEST_ASSERT_EQUAL_INT64(3000, future[1].timestamp);
 }
 
+void test_apply_with_no_future_extremes_keeps_existing_data() {
+    // A fetch whose extremes were all rejected (or all in the past) must not
+    // wipe the good cached data.
+    TideExtreme current = ext(900, true);
+    TideExtreme stored[kMaxFuture] = {ext(1500, false), ext(2500, true)};
+    int numStored = 2;
+    TideExtreme parsedPastOnly[] = {ext(800, false)};
+    TEST_ASSERT_FALSE(applyTideExtremes(parsedPastOnly, 1, 1000, current, stored, numStored, kMaxFuture));
+    TEST_ASSERT_FALSE(applyTideExtremes(nullptr, 0, 1000, current, stored, numStored, kMaxFuture));
+    TEST_ASSERT_EQUAL_INT(2, numStored);
+    TEST_ASSERT_EQUAL_INT64(900, current.timestamp);
+    TEST_ASSERT_EQUAL_INT64(1500, stored[0].timestamp);
+}
+
+void test_apply_with_future_extremes_replaces_data() {
+    TideExtreme current = ext(900, true);
+    TideExtreme stored[kMaxFuture] = {ext(1500, false), ext(2500, true)};
+    int numStored = 2;
+    TideExtreme parsed[] = {ext(950, false), ext(3000, true)};
+    TEST_ASSERT_TRUE(applyTideExtremes(parsed, 2, 1000, current, stored, numStored, kMaxFuture));
+    TEST_ASSERT_EQUAL_INT(1, numStored);
+    TEST_ASSERT_EQUAL_INT64(950, current.timestamp);
+    TEST_ASSERT_EQUAL_INT64(3000, stored[0].timestamp);
+}
+
 void test_parse_converts_ms_to_seconds_and_type() {
     TideExtreme e;
     TEST_ASSERT_TRUE(parseApiExtreme(1764259200000.0, 1.75, "\"HIGH\"", e));
@@ -180,6 +205,8 @@ int main(int, char**) {
     RUN_TEST(test_future_is_sorted_ascending);
     RUN_TEST(test_cap_keeps_earliest_when_unsorted);
     RUN_TEST(test_duplicate_future_timestamps_are_dropped);
+    RUN_TEST(test_apply_with_no_future_extremes_keeps_existing_data);
+    RUN_TEST(test_apply_with_future_extremes_replaces_data);
     RUN_TEST(test_parse_converts_ms_to_seconds_and_type);
     RUN_TEST(test_parse_rejects_non_finite_or_missing);
     RUN_TEST(test_parse_rejects_unknown_type);

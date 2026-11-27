@@ -108,6 +108,22 @@ bool TideService::fetchTideData(TideData& tideData) {
 
     JSONVar tides = doc["data"]["tides"];
 
+    // Extremes first: if none are usable, fail without touching tideData so
+    // the cached data is kept and the caller's retry logic applies.
+    if (ENABLE_DEBUG_PRINTS) {
+        Serial.println("Processing extremes...");
+    }
+    if (!tides.hasOwnProperty("extremes")) {
+        if (ENABLE_DEBUG_PRINTS) {
+            Serial.println("No extremes data in response");
+        }
+        return false;
+    }
+    JSONVar extremes = tides["extremes"];
+    if (!processTideExtremes(extremes, tideData, now)) {
+        return false;
+    }
+
     // Update current tide data
     if (ENABLE_DEBUG_PRINTS) {
         Serial.println("Updating tide data...");
@@ -121,20 +137,6 @@ bool TideService::fetchTideData(TideData& tideData) {
     
     tideData.currentHeight = (double)tides["waterLevel"];
     tideData.lastUpdateTime = now;
-
-    // Process tide extremes
-    if (ENABLE_DEBUG_PRINTS) {
-        Serial.println("Processing extremes...");
-    }
-    if (tides.hasOwnProperty("extremes")) {
-        JSONVar extremes = tides["extremes"];
-        processTideExtremes(extremes, tideData, now);
-    } else {
-        if (ENABLE_DEBUG_PRINTS) {
-            Serial.println("No extremes data in response");
-        }
-        return false;
-    }
 
     if (ENABLE_DEBUG_PRINTS) {
         Serial.println("Tide data fetch completed successfully");
@@ -180,7 +182,7 @@ String TideService::buildGraphQLQuery(time_t startTime, time_t endTime) {
     return query;
 }
 
-void TideService::processTideExtremes(JSONVar& extremes, TideData& tideData, time_t now) {
+bool TideService::processTideExtremes(JSONVar& extremes, TideData& tideData, time_t now) {
     // The request spans about six days (one back, five ahead), at roughly
     // four extremes a day. Extremes past this buffer are dropped. It is static
     // to keep about 1 KB off the stack during the TLS request.
@@ -209,11 +211,18 @@ void TideService::processTideExtremes(JSONVar& extremes, TideData& tideData, tim
         }
     }
 
-    tideData.numExtremes = splitTideExtremes(parsed, count, now, tideData.current,
-                                             tideData.extremes, MAX_EXTREMES);
+    if (!applyTideExtremes(parsed, count, now, tideData.current, tideData.extremes,
+                           tideData.numExtremes, MAX_EXTREMES)) {
+        if (ENABLE_DEBUG_PRINTS) {
+            Serial.printf("No usable future extremes (%d of %d parsed); keeping cached data\n",
+                          count, total);
+        }
+        return false;
+    }
 
     if (ENABLE_DEBUG_PRINTS) {
         Serial.printf("Recent past extreme: %s\n", hasTimestamp(tideData.current) ? "found" : "none");
         Serial.printf("Stored %d future extremes\n", tideData.numExtremes);
     }
+    return true;
 }

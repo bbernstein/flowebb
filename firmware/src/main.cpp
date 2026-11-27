@@ -180,6 +180,11 @@ void loop() {
                 }
                 WiFiService::disconnect();
             }
+            if (syncClock) {
+                // Measure the backoff from the end of the attempt: connect can
+                // block for WIFI_TIMEOUT, and the radio should then rest.
+                recordClockSyncAttempt(clockSync, millis());
+            }
         }
         
         // Only use a small delay in the loop to allow LED updates

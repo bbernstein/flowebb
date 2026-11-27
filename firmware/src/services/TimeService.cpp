@@ -12,7 +12,8 @@ void TimeService::initialize() {
     Serial.println("\nTime configuration:");
     Serial.printf("GMT Offset: %ld seconds (%d hours)\n", GMT_OFFSET_SEC, GMT_OFFSET_SEC/3600);
     Serial.printf("DST Offset: %d seconds (%d hours)\n", DAYLIGHT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC/3600);
-    Serial.printf("Current time: %s\n", formatLocalTime().c_str());
+    // The current time is printed by waitForSync() once NTP answers;
+    // formatLocalTime() here would block up to 5 s on its own.
 }
 
 bool TimeService::waitForSync(uint32_t timeoutMs) {
@@ -24,6 +25,7 @@ bool TimeService::waitForSync(uint32_t timeoutMs) {
         }
         delay(100);
     }
+    Serial.printf("Current time: %s\n", formatLocalTime().c_str());
     return true;
 }
 

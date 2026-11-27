@@ -33,3 +33,12 @@ bool parseApiExtreme(double timestampMs, double height, const char* typeJson,
 // Returns how many future extremes were written.
 int splitTideExtremes(const TideExtreme* all, int count, time_t now,
                       TideExtreme& lastPast, TideExtreme* future, int maxFuture);
+
+// All-or-nothing update of the stored extremes from freshly parsed ones.
+// Splits `parsed` (see splitTideExtremes) and, only if at least one future
+// extreme results, replaces `current`, `extremes` and `numExtremes`. Returns
+// false and leaves everything unchanged otherwise, so a bad or empty
+// response never overwrites good cached data.
+bool applyTideExtremes(const TideExtreme* parsed, int count, time_t now,
+                       TideExtreme& current, TideExtreme* extremes,
+                       int& numExtremes, int maxExtremes);

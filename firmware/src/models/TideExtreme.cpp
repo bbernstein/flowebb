@@ -51,3 +51,21 @@ int splitTideExtremes(const TideExtreme* all, int count, time_t now,
     }
     return numFuture;
 }
+
+bool applyTideExtremes(const TideExtreme* parsed, int count, time_t now,
+                       TideExtreme& current, TideExtreme* extremes,
+                       int& numExtremes, int maxExtremes) {
+    // Split into a temporary first. It is static (about 1 KB) to keep it off
+    // the small loop-task stack; the device calls this from one task only.
+    static const int kMaxBuffer = 64;
+    static TideExtreme future[kMaxBuffer];
+    if (maxExtremes > kMaxBuffer) maxExtremes = kMaxBuffer;
+    TideExtreme lastPast;
+    int numFuture = splitTideExtremes(parsed, count, now, lastPast, future, maxExtremes);
+    if (numFuture == 0) return false;
+
+    current = lastPast;
+    for (int i = 0; i < numFuture; i++) extremes[i] = future[i];
+    numExtremes = numFuture;
+    return true;
+}

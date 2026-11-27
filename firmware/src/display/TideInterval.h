@@ -3,11 +3,11 @@
 // No Arduino.h here: host unit tests in test/native/ compile this file.
 #include "../models/TideExtreme.h"
 
-// The tide interval the LED shows: the extreme the water is moving away from
-// and the extreme it is moving toward.
 // Typical time between a high and the next low (half of 12h25m).
 const time_t kTypicalTideHalfCycleSec = 22350;
 
+// The tide interval the LED shows: the extreme the water is moving away from
+// and the extreme it is moving toward.
 struct TideInterval {
     TideExtreme current;
     TideExtreme next;
