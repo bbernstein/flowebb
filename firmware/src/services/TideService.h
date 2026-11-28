@@ -16,6 +16,6 @@ public:
     
 private:
     static String buildGraphQLQuery(time_t startTime, time_t endTime);
-    static void processTideExtremes(JSONVar& extremes, TideData& tideData, time_t now);
+    static bool processTideExtremes(JSONVar& extremes, TideData& tideData, time_t now);
     static void feedWatchdog();
 };

@@ -29,33 +29,29 @@ void LedController::updateDisplay(const TideData& tideData) {
     }
     lastUpdateTime = currentMillis;
     
-    if (tideData.numExtremes == 0) return;
-    
     time_t now = TimeService::getCurrentTime();
-    
-    // If we're past all stored extremes, return early
-    if (now > tideData.extremes[tideData.numExtremes - 2].timestamp) {
+
+    // Before NTP sync (e.g. cold boot without Wi-Fi) the clock reads near
+    // 1970. Any color drawn from cached extremes would then be a guess.
+    if (!isClockSet(now)) {
         return;
     }
 
-    TideExtreme currentExtreme = tideData.current;
-    int nextIndex = 0;
-    if (now > tideData.extremes[0].timestamp) {
-        // find last extreme before now
-        for (int i = tideData.numExtremes - 1; i >= 0; i--) {
-            if (tideData.extremes[i].timestamp <= now) {
-                currentExtreme = tideData.extremes[i];
-                nextIndex = i + 1;
-                break;
-            }
-        }
+    // Find the interval containing now. Past the last stored extreme there is
+    // nothing to show; keep the LED as is until new tide data arrives.
+    // Clamp in case cached data holds a bad count (see issue #19).
+    int numExtremes = tideData.numExtremes;
+    if (numExtremes > MAX_EXTREMES) numExtremes = MAX_EXTREMES;
+    TideInterval interval;
+    if (!selectTideInterval(tideData.current, tideData.extremes,
+                            numExtremes, now, interval)) {
+        return;
     }
-
-    // set nextExtreme to the next extreme after now
-    const TideExtreme& nextExtreme = tideData.extremes[nextIndex];
+    const TideExtreme& currentExtreme = interval.current;
+    const TideExtreme& nextExtreme = interval.next;
 
     // Calculate progress and update animation
-    float progress = calculateTideProgress(currentExtreme, nextExtreme, now);
+    float progress = tideProgress(currentExtreme, nextExtreme, now);
     updateWaveAnimation(currentMillis);
     uint32_t color = calculateTideColor(progress, currentExtreme, nextExtreme);
     
@@ -67,13 +63,6 @@ void LedController::updateDisplay(const TideData& tideData) {
 
     pixel.setPixelColor(0, color);
     pixel.show();
-}
-
-float LedController::calculateTideProgress(const TideExtreme& current, const TideExtreme& next, time_t now) {
-    int64_t timeToNext = next.timestamp - now;
-    int64_t totalTime = next.timestamp - current.timestamp;
-    
-    return 1.0 - ((float)timeToNext / totalTime);
 }
 
 void LedController::updateWaveAnimation(unsigned long currentMillis) {

@@ -9,6 +9,7 @@
 TideData::TideData() : 
     type(""),
     currentHeight(0),
+    current{0, 0.0f, false},
     numExtremes(0),
     lastUpdateTime(0) {
 }

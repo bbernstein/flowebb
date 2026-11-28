@@ -13,12 +13,14 @@
 #include "services/TideService.h"
 #include "storage/PreferencesManager.h"
 #include "display/LedController.h"
+#include "services/ClockSync.h"
 #include "utils/JsonHelper.h"
 
 // Global state
 TideData tideData;
 unsigned long lastTideCheck = 0;
 int retryCount = 0;
+ClockSyncState clockSync;
 
 void tryInitialDataLoad() {
     bool hasValidData = false;
@@ -119,6 +121,8 @@ void setup() {
     if (needsDataUpdate) {
         if (WiFiService::connect()) {
             TimeService::initialize();
+            recordClockSyncAttempt(clockSync, millis());
+            TimeService::waitForSync();
             tryInitialDataLoad();
             WiFiService::disconnect();
         } else {
@@ -135,28 +139,51 @@ void loop() {
         // Update LED display
         LedController::updateDisplay(tideData);
         
-        // Check if we need to update tide data
-        if (tideData.needsUpdate(now)) {
+        // If Wi-Fi was down at boot, NTP never ran and the clock reads ~1970.
+        // Retry the sync (with backoff) so the device can recover. needsUpdate
+        // is meaningless until the clock is set, so it is checked only then.
+        bool clockSet = isClockSet(now);
+        bool syncClock = shouldAttemptClockSync(clockSync, now, millis(), CLOCK_SYNC_RETRY_MS);
+        bool fetchData = clockSet && tideData.needsUpdate(now);
+
+        if (syncClock || fetchData) {
             if (ENABLE_DEBUG_PRINTS) {
-                Serial.println("Tide data needs update, connecting to WiFi...");
+                Serial.println(syncClock ? "Clock not set, connecting to WiFi for NTP..."
+                                         : "Tide data needs update, connecting to WiFi...");
             }
-            
+            if (syncClock) {
+                recordClockSyncAttempt(clockSync, millis());
+            }
+
             if (WiFiService::connect()) {
-                if (TideService::fetchTideData(tideData)) {
-                    if (ENABLE_DEBUG_PRINTS) {
-                        Serial.println("Tide data updated successfully");
-                    }
-                    PreferencesManager::saveTideData(tideData);
-                    retryCount = 0;
-                } else {
-                    if (ENABLE_DEBUG_PRINTS) {
-                        Serial.println("Failed to update tide data");
-                    }
-                    if (++retryCount >= 3) {
-                        ESP.restart();
+                if (syncClock) {
+                    TimeService::initialize();
+                    TimeService::waitForSync();
+                    now = TimeService::getCurrentTime();
+                    fetchData = isClockSet(now) && tideData.needsUpdate(now);
+                }
+                if (fetchData) {
+                    if (TideService::fetchTideData(tideData)) {
+                        if (ENABLE_DEBUG_PRINTS) {
+                            Serial.println("Tide data updated successfully");
+                        }
+                        PreferencesManager::saveTideData(tideData);
+                        retryCount = 0;
+                    } else {
+                        if (ENABLE_DEBUG_PRINTS) {
+                            Serial.println("Failed to update tide data");
+                        }
+                        if (++retryCount >= 3) {
+                            ESP.restart();
+                        }
                     }
                 }
                 WiFiService::disconnect();
+            }
+            if (syncClock) {
+                // Measure the backoff from the end of the attempt: connect can
+                // block for WIFI_TIMEOUT, and the radio should then rest.
+                recordClockSyncAttempt(clockSync, millis());
             }
         }
         

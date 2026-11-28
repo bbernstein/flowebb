@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 #include "../models/TideData.h"
+#include "TideInterval.h"
 #include "../config/config.h"
 #include "../services/TimeService.h"
 
@@ -15,7 +16,6 @@ private:
     static uint8_t currentBlueLevel;
     static unsigned long nextWaveTime;
 
-    static float calculateTideProgress(const TideExtreme& current, const TideExtreme& next, time_t now);
     static void updateWaveAnimation(unsigned long currentMillis);
     static uint32_t calculateTideColor(float progress, const TideExtreme& current, const TideExtreme& next);
     static void debugPrintStatus(float progress, uint32_t color, const TideExtreme& nextExtreme);

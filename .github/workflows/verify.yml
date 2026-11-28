@@ -39,7 +39,6 @@ jobs:
               - 'www/**'
             infra:
               - 'infra/**'
-            # Reserved for future firmware CI; no job consumes this yet.
             firmware:
               - 'firmware/**'
             workflows:
@@ -229,6 +228,32 @@ jobs:
       - name: Test apex redirect function
         run: node --test 'infra/terraform/modules/www_site/*.test.mjs'
 
+  firmware-test:
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.firmware == 'true' ||
+      needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: firmware
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PlatformIO
+        run: pip install platformio==6.2.0
+
+      # Host-side unit tests only. The ESP32 build is not run in CI because it
+      # needs the gitignored wifi_credentials.h and a large toolchain download.
+      - name: Run native unit tests
+        run: pio test -e native
+
   infra-lint:
     needs: changes
     if: >-
@@ -375,6 +400,7 @@ jobs:
       - web-test
       - web-build
       - www-test
+      - firmware-test
       - infra-lint
       - infra-plan
       - secrets-scan
