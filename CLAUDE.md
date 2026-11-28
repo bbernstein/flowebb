@@ -95,7 +95,7 @@ Run each from its platform directory. Full details are in each platform's
 
 | Platform | Install / generate | Lint | Test | Build / run |
 |---|---|---|---|---|
-| `backend/` | `go install github.com/99designs/gqlgen@v0.17.64`, then `rm -rf graph/generated graph/model && gqlgen generate` | `go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8 run --timeout=5m` | `go test -race ./...` (≥80% coverage enforced in CI) | `go build ./...` |
+| `backend/` | `rm -rf graph/generated graph/model && go tool gqlgen generate` (gqlgen is a `tool` in go.mod) | `go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8 run --timeout=5m` | `go test -race ./...` (≥80% coverage enforced in CI) | `go build ./...` |
 | `web/` | `npm ci` | `npm run lint` | `npm test` | `npm run dev` (port 3000), `npm run build` |
 | `www/` | `npm ci` | `npm run lint` | `npm test` | none (static files in `www/site/`) |
 | `infra/terraform/` | `tflint --init` | `terraform fmt -check -recursive`, `tflint --recursive` | `terraform plan` from `environments/prod/` (read-only) | apply only via `deploy-infra.yml` |

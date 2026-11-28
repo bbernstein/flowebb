@@ -70,8 +70,7 @@ jobs:
         run: |
           rm -rf graph/generated graph/model
           go mod download
-          go install github.com/99designs/gqlgen@v0.17.64
-          gqlgen generate
+          go tool gqlgen generate
           go mod tidy
 
       - name: Run golangci-lint
@@ -107,8 +106,7 @@ jobs:
         run: |
           rm -rf graph/generated graph/model
           go mod download
-          go install github.com/99designs/gqlgen@v0.17.64
-          gqlgen generate
+          go tool gqlgen generate
           go mod tidy
 
       - name: Run race tests

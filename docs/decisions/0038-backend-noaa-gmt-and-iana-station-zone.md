@@ -67,6 +67,11 @@ and got 05:38Z. A fixed offset also cannot represent transition days, and
 - CI: the golangci-lint step uses `install-mode: goinstall`, so lint is built
   with the Go toolchain that setup-go reads from `go.mod`. The prebuilt
   v1.64.8 binary is built with Go 1.24 and may refuse a module targeting 1.25.
+- gqlgen (still v0.17.64) is pinned as a `tool` in `go.mod` and run with
+  `go tool gqlgen generate`. `go install gqlgen@v0.17.64` uses gqlgen's own
+  `golang.org/x/tools v0.24.0`, which does not build on Go 1.25. The tool
+  directive resolves it through our module, where `x/tools` is v0.26.0.
+  Generated code is unchanged.
 
 ## Platforms
 
