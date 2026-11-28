@@ -72,7 +72,7 @@ func ForStation(lat, lon float64, stdOffsetSeconds int) *time.Location {
 
 func lookup(lat, lon float64, stdOffsetSeconds int) *time.Location {
 	fallback := time.FixedZone("", stdOffsetSeconds)
-	if lat < -90 || lat > 90 || lon < -180 || lon > 180 || math.IsNaN(lat) || math.IsNaN(lon) {
+	if lat < -90 || lat > 90 || lon < -180 || lon > 180 {
 		return fallback
 	}
 	f := getFinder()

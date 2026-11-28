@@ -39,7 +39,8 @@ and got 05:38Z. A fixed offset also cannot represent transition days, and
   at Lambda init so the first request does not pay for it.
 - `time/tzdata` is embedded, so the Lambda does not depend on OS zoneinfo.
 - tzf requires a newer Go, so `backend/go.mod` moved from Go 1.23.4 to 1.25.0.
-  The binary grew by about 2.7 MB (about 13.6%).
+  The linux/arm64 `bootstrap` binary grew from 20.07 MB to 31.75 MB (+11.7 MB,
+  +58%); gzipped, from 9.2 MB to 14.4 MB. The boundary data in tzf is most of it.
 
 ## Alternatives rejected
 
@@ -61,6 +62,8 @@ and got 05:38Z. A fixed offset also cannot represent transition days, and
   crosses a DST change. Local-time strings are exact. If clients need more, add
   an optional `timeZone` (IANA name) field later; that is backward compatible.
 - Stations that fall back to a fixed offset keep the old DST error.
+- The tzf finder holds about 45 MB of heap, so check Lambda memory headroom at
+  deploy.
 - CI: the golangci-lint step uses `install-mode: goinstall`, so lint is built
   with the Go toolchain that setup-go reads from `go.mod`. The prebuilt
   v1.64.8 binary is built with Go 1.24 and may refuse a module targeting 1.25.

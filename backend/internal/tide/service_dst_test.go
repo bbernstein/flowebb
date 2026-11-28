@@ -23,11 +23,8 @@ type fakeNoaaEvent struct {
 }
 
 // fakeNoaa emulates the NOAA datagetter endpoint. With time_zone=gmt it
-// honors time-qualified GMT begin/end bounds and renders times in GMT. With
-// time_zone=lst_ldt it renders local (daylight-aware) times in ldt, as the
-// real API does, so the old request style can be shown to be wrong.
+// honors time-qualified GMT begin/end bounds and renders times in GMT.
 type fakeNoaa struct {
-	ldt    *time.Location
 	events []fakeNoaaEvent
 
 	mu    sync.Mutex
@@ -55,28 +52,13 @@ func (f *fakeNoaa) get(_ context.Context, path string) (*client.Response, error)
 	}
 	q := u.Query()
 
-	render := time.UTC
-	var begin, end time.Time
-	if q.Get("time_zone") == "gmt" {
-		begin, err = time.ParseInLocation("20060102 15:04", q.Get("begin_date"), time.UTC)
-		if err != nil {
-			return nil, err
-		}
-		end, err = time.ParseInLocation("20060102 15:04", q.Get("end_date"), time.UTC)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		render = f.ldt
-		begin, err = time.ParseInLocation("20060102", q.Get("begin_date"), f.ldt)
-		if err != nil {
-			return nil, err
-		}
-		end, err = time.ParseInLocation("20060102", q.Get("end_date"), f.ldt)
-		if err != nil {
-			return nil, err
-		}
-		end = end.AddDate(0, 0, 1).Add(-time.Minute)
+	begin, err := time.ParseInLocation("20060102 15:04", q.Get("begin_date"), time.UTC)
+	if err != nil {
+		return nil, err
+	}
+	end, err := time.ParseInLocation("20060102 15:04", q.Get("end_date"), time.UTC)
+	if err != nil {
+		return nil, err
 	}
 
 	var items []string
@@ -86,12 +68,12 @@ func (f *fakeNoaa) get(_ context.Context, path string) (*client.Response, error)
 				continue
 			}
 			items = append(items, fmt.Sprintf(`{"t":%q,"v":%q,"type":%q}`,
-				e.at.In(render).Format("2006-01-02 15:04"), e.height, e.kind))
+				e.at.UTC().Format("2006-01-02 15:04"), e.height, e.kind))
 		}
 	} else {
 		for t := begin; !t.After(end); t = t.Add(6 * time.Minute) {
 			items = append(items, fmt.Sprintf(`{"t":%q,"v":"1.000"}`,
-				t.In(render).Format("2006-01-02 15:04")))
+				t.UTC().Format("2006-01-02 15:04")))
 		}
 	}
 	body := `{"predictions":[` + strings.Join(items, ",") + `]}`
@@ -167,7 +149,6 @@ var bostonJuly1Events = []fakeNoaaEvent{
 
 type dstCase struct {
 	station    dstStation
-	ldt        string // IANA zone the fake uses to render lst_ldt times
 	now        time.Time
 	events     []fakeNoaaEvent
 	wantOffset int
@@ -181,10 +162,7 @@ type dstCase struct {
 
 func runDSTCase(t *testing.T, tc dstCase) *models.ExtendedTideResponse {
 	t.Helper()
-	ldt, err := time.LoadLocation(tc.ldt)
-	require.NoError(t, err)
-
-	fake := &fakeNoaa{ldt: ldt, events: tc.events}
+	fake := &fakeNoaa{events: tc.events}
 	cache := newRecordingCache()
 	svc := &Service{
 		HttpClient:      fake.client(),
@@ -235,7 +213,6 @@ func runDSTCase(t *testing.T, tc dstCase) *models.ExtendedTideResponse {
 func TestDST_BostonSummerDay(t *testing.T) {
 	resp := runDSTCase(t, dstCase{
 		station:    bostonStation,
-		ldt:        "America/New_York",
 		now:        time.Date(2026, 7, 1, 16, 0, 0, 0, time.UTC),
 		events:     bostonJuly1Events,
 		wantOffset: -14400,
@@ -260,7 +237,6 @@ func TestDST_BostonSummerDay(t *testing.T) {
 func TestDST_BostonWinterDay(t *testing.T) {
 	runDSTCase(t, dstCase{
 		station:    bostonStation,
-		ldt:        "America/New_York",
 		now:        time.Date(2026, 1, 15, 17, 0, 0, 0, time.UTC),
 		wantOffset: -18000,
 		wantBegin:  "20260115%2005:00",
@@ -275,7 +251,6 @@ func TestDST_BostonWinterDay(t *testing.T) {
 func TestDST_BostonSpringForwardDay(t *testing.T) {
 	runDSTCase(t, dstCase{
 		station:    bostonStation,
-		ldt:        "America/New_York",
 		now:        time.Date(2026, 3, 8, 17, 0, 0, 0, time.UTC), // 13:00 EDT
 		wantOffset: -14400,
 		wantBegin:  "20260308%2005:00", // midnight EST
@@ -290,7 +265,6 @@ func TestDST_BostonSpringForwardDay(t *testing.T) {
 func TestDST_BostonFallBackDay(t *testing.T) {
 	runDSTCase(t, dstCase{
 		station:    bostonStation,
-		ldt:        "America/New_York",
 		now:        time.Date(2026, 11, 1, 18, 0, 0, 0, time.UTC), // 13:00 EST
 		wantOffset: -18000,
 		wantBegin:  "20261101%2004:00", // midnight EDT
@@ -305,7 +279,6 @@ func TestDST_BostonFallBackDay(t *testing.T) {
 func TestDST_HonoluluNoDST(t *testing.T) {
 	runDSTCase(t, dstCase{
 		station:    honoluluStation,
-		ldt:        "Pacific/Honolulu",
 		now:        time.Date(2026, 7, 1, 22, 0, 0, 0, time.UTC),
 		wantOffset: -36000,
 		wantBegin:  "20260701%2010:00",
@@ -320,7 +293,6 @@ func TestDST_HonoluluNoDST(t *testing.T) {
 func TestDST_GuamPositiveOffset(t *testing.T) {
 	runDSTCase(t, dstCase{
 		station:    guamStation,
-		ldt:        "Pacific/Guam",
 		now:        time.Date(2026, 7, 1, 2, 0, 0, 0, time.UTC), // 12:00 ChST
 		wantOffset: 36000,
 		wantBegin:  "20260630%2014:00",
@@ -339,7 +311,6 @@ func TestDST_SubordinateStationFetchesPreviousLocalDay(t *testing.T) {
 	st.stype = "S"
 	runDSTCase(t, dstCase{
 		station:    st,
-		ldt:        "America/New_York",
 		now:        time.Date(2026, 7, 1, 16, 0, 0, 0, time.UTC),
 		events:     bostonJuly1Events,
 		wantOffset: -14400,
@@ -365,4 +336,76 @@ func TestNoaaGMTBound(t *testing.T) {
 	ny, err := time.LoadLocation("America/New_York")
 	require.NoError(t, err)
 	assert.Equal(t, "20260701%2004:00", noaaGMTBound(time.Date(2026, 7, 1, 0, 0, 0, 0, ny)))
+}
+
+// runRange drives GetCurrentTideForStation with an explicit start and end,
+// which is how the web app and the device always call it.
+func runRange(t *testing.T, now time.Time, start, end string, events []fakeNoaaEvent) *models.ExtendedTideResponse {
+	t.Helper()
+	fake := &fakeNoaa{events: events}
+	svc := &Service{
+		HttpClient:      fake.client(),
+		StationFinder:   bostonStation.finder(),
+		PredictionCache: newRecordingCache(),
+		Now:             func() time.Time { return now },
+	}
+	resp, err := svc.GetCurrentTideForStation(context.Background(), bostonStation.id, &start, &end)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	return resp
+}
+
+func assertSixMinuteSteps(t *testing.T, resp *models.ExtendedTideResponse) {
+	t.Helper()
+	for i := 1; i < len(resp.Predictions); i++ {
+		assert.Equal(t, int64(6*60*1000), resp.Predictions[i].Timestamp-resp.Predictions[i-1].Timestamp,
+			"prediction %d must be exactly 6 minutes after the previous", i)
+	}
+}
+
+func TestDST_ExplicitRangeAcrossSpringForward(t *testing.T) {
+	events := []fakeNoaaEvent{
+		{time.Date(2026, 3, 8, 6, 30, 0, 0, time.UTC), "H", "9.5"}, // 01:30 EST
+		{time.Date(2026, 3, 8, 7, 30, 0, 0, time.UTC), "L", "0.5"}, // 03:30 EDT
+	}
+	resp := runRange(t, time.Date(2026, 3, 8, 17, 0, 0, 0, time.UTC),
+		"2026-03-07T12:00:00", "2026-03-09T12:00:00", events)
+
+	// 47 real hours (the 2-hour local span has a skipped hour) at 6 min,
+	// inclusive of both ends.
+	require.Len(t, resp.Predictions, 471)
+	assert.Equal(t, "2026-03-07T12:00:00", resp.Predictions[0].LocalTime)
+	assert.Equal(t, "2026-03-09T12:00:00", resp.Predictions[470].LocalTime)
+	assert.Equal(t, time.Date(2026, 3, 7, 17, 0, 0, 0, time.UTC).UnixMilli(), resp.Predictions[0].Timestamp)
+	assert.Equal(t, time.Date(2026, 3, 9, 16, 0, 0, 0, time.UTC).UnixMilli(), resp.Predictions[470].Timestamp)
+	assertSixMinuteSteps(t, resp)
+
+	require.Len(t, resp.Extremes, 2)
+	assert.Equal(t, "2026-03-08T01:30:00", resp.Extremes[0].LocalTime)
+	assert.Equal(t, time.Date(2026, 3, 8, 6, 30, 0, 0, time.UTC).UnixMilli(), resp.Extremes[0].Timestamp)
+	assert.Equal(t, "2026-03-08T03:30:00", resp.Extremes[1].LocalTime)
+	assert.Equal(t, time.Date(2026, 3, 8, 7, 30, 0, 0, time.UTC).UnixMilli(), resp.Extremes[1].Timestamp)
+}
+
+func TestDST_ExplicitRangeAcrossFallBack(t *testing.T) {
+	events := []fakeNoaaEvent{
+		{time.Date(2026, 11, 1, 5, 30, 0, 0, time.UTC), "H", "9.5"}, // 01:30 EDT
+		{time.Date(2026, 11, 1, 6, 30, 0, 0, time.UTC), "L", "0.5"}, // 01:30 EST
+	}
+	resp := runRange(t, time.Date(2026, 11, 1, 17, 0, 0, 0, time.UTC),
+		"2026-10-31T12:00:00", "2026-11-02T12:00:00", events)
+
+	// 49 real hours: the 25-hour day repeats the 01:xx hour.
+	require.Len(t, resp.Predictions, 491)
+	assert.Equal(t, "2026-10-31T12:00:00", resp.Predictions[0].LocalTime)
+	assert.Equal(t, "2026-11-02T12:00:00", resp.Predictions[490].LocalTime)
+	assertSixMinuteSteps(t, resp)
+
+	require.Len(t, resp.Extremes, 2)
+	first, second := resp.Extremes[0], resp.Extremes[1]
+	assert.Equal(t, "2026-11-01T01:30:00", first.LocalTime)
+	assert.Equal(t, "2026-11-01T01:30:00", second.LocalTime)
+	assert.Equal(t, time.Date(2026, 11, 1, 5, 30, 0, 0, time.UTC).UnixMilli(), first.Timestamp)
+	assert.Equal(t, time.Date(2026, 11, 1, 6, 30, 0, 0, time.UTC).UnixMilli(), second.Timestamp)
+	assert.NotEqual(t, first.Timestamp, second.Timestamp)
 }
