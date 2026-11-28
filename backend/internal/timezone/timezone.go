@@ -40,10 +40,37 @@ func getFinder() tzf.F {
 // rescue coastal stations whose coordinates fall inside an ocean polygon.
 var nearbyOffsetsDeg = []float64{0.05, 0.1, 0.2}
 
+// Warm builds the zone finder so the cost is paid at start-up (for example
+// Lambda init) rather than on the first request.
+func Warm() { getFinder() }
+
+type cacheKey struct {
+	lat, lon  float64
+	stdOffset int
+}
+
+// locCache memoizes ForStation results. A stations query can map thousands of
+// stations, and each uncached lookup may probe the finder many times.
+var locCache sync.Map // cacheKey -> *time.Location
+
 // ForStation returns the IANA location for a station. stdOffsetSeconds is
 // NOAA's standard (non-DST) offset from UTC and stays authoritative: if no
 // land zone with that standard offset is found, a fixed zone is returned.
+// Results are memoized per (lat, lon, stdOffsetSeconds).
 func ForStation(lat, lon float64, stdOffsetSeconds int) *time.Location {
+	// NaN never equals itself, so it cannot be a usable map key.
+	if math.IsNaN(lat) || math.IsNaN(lon) {
+		return time.FixedZone("", stdOffsetSeconds)
+	}
+	key := cacheKey{lat, lon, stdOffsetSeconds}
+	if v, ok := locCache.Load(key); ok {
+		return v.(*time.Location)
+	}
+	v, _ := locCache.LoadOrStore(key, lookup(lat, lon, stdOffsetSeconds))
+	return v.(*time.Location)
+}
+
+func lookup(lat, lon float64, stdOffsetSeconds int) *time.Location {
 	fallback := time.FixedZone("", stdOffsetSeconds)
 	if lat < -90 || lat > 90 || lon < -180 || lon > 180 || math.IsNaN(lat) || math.IsNaN(lon) {
 		return fallback

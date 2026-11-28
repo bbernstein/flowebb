@@ -8,6 +8,7 @@ import (
 	"github.com/bbernstein/flowebb/backend/graph"
 	"github.com/bbernstein/flowebb/backend/internal/station"
 	"github.com/bbernstein/flowebb/backend/internal/tide"
+	"github.com/bbernstein/flowebb/backend/internal/timezone"
 	"github.com/bbernstein/flowebb/backend/pkg/http/client"
 	"github.com/rs/zerolog/log"
 	"net/http"
@@ -81,6 +82,8 @@ func InitializeService() error { // Return error instead of fatal
 }
 
 func init() {
+	// Build the timezone finder (~1s) during Lambda init, not on the first request.
+	timezone.Warm()
 	if err := InitializeService(); err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize service")
 	}

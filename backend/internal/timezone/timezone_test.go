@@ -1,6 +1,7 @@
 package timezone
 
 import (
+	"math"
 	"testing"
 	"time"
 )
@@ -83,5 +84,28 @@ func assertFixed(t *testing.T, loc *time.Location, offset int) {
 	_, got2 := time.Date(2025, 1, 1, 0, 0, 0, 0, loc).Zone()
 	if got != offset || got2 != offset {
 		t.Errorf("offsets = %d/%d, want fixed %d (zone %q)", got2, got, offset, loc.String())
+	}
+}
+
+func TestForStation_Memoized(t *testing.T) {
+	a := ForStation(42.3601, -71.0589, -5*hour)
+	b := ForStation(42.3601, -71.0589, -5*hour)
+	if a != b {
+		t.Fatal("repeat call returned a different *time.Location")
+	}
+	c := ForStation(42.3601, -71.0589, -6*hour)
+	if c == a {
+		t.Fatal("different std offset must not share a cache entry")
+	}
+	n1 := ForStation(math.NaN(), 0, 3*hour)
+	if _, off := time.Now().In(n1).Zone(); off != 3*hour {
+		t.Fatalf("NaN fallback offset = %d", off)
+	}
+}
+
+func TestWarm_BuildsFinder(t *testing.T) {
+	Warm()
+	if getFinder() == nil {
+		t.Fatal("finder not built")
 	}
 }
