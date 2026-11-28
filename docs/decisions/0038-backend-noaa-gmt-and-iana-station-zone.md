@@ -47,8 +47,9 @@ and got 05:38Z. A fixed offset also cannot represent transition days, and
   dependency, but a hand-kept table with edge cases (Cuba, Mexico, Bermuda).
 - Ask the NOAA per-station endpoint for `observedst`, then map to a US-rules
   zone: uses NOAA's own flag, but costs an extra NOAA call per new station.
-- Keep `time_zone=lst` (standard time only) and apply DST ourselves: still
-  needs the per-station zone, so it removes nothing.
+- Keep `time_zone=lst`: instants are correct with the fixed offset, but
+  local-time strings and day boundaries still need the station's DST rules,
+  so a per-station zone is needed anyway.
 - Keep `lst_ldt` and fix the parsing: the instants are only recoverable if
   the DST state of each time is known, which is the problem to be solved.
 

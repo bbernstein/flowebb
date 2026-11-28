@@ -32,6 +32,7 @@ Each record is listed once, under the platform it mainly constrains. Its
 - [0020: NOAA failures become typed errors, and must not pass as empty data](0020-noaa-errors-typed-and-502.md). Accepted.
 - [0025: Serve the API as one GraphQL Lambda built with gqlgen](0025-graphql-api-with-gqlgen.md). Accepted.
 - [0028: Backend tests: 80% coverage without generated code, injected dependencies, no real NOAA or AWS](0028-backend-testing-and-coverage.md). Accepted.
+- [0038: Backend fetches NOAA in GMT and uses a lat/lon-derived IANA zone](0038-backend-noaa-gmt-and-iana-station-zone.md). Accepted.
 
 ### Web
 
@@ -67,7 +68,6 @@ Each record is listed once, under the platform it mainly constrains. Its
 - [0031: The LED color tracks tide level, red at low water and green at high, with a faint blue wave](0031-led-color-semantics.md). Accepted.
 - [0032: Battery power: 2xAA through a boost converter, sized by duty cycle](0032-battery-power-budget.md). Accepted (hardware recommendation).
 - [0037: Firmware logic is unit-tested on the host through a native PlatformIO env](0037-firmware-host-unit-tests.md). Accepted.
-- [0038: Backend fetches NOAA in GMT and uses a lat/lon-derived IANA zone](0038-backend-noaa-gmt-and-iana-station-zone.md). Accepted.
 
 ### Cross-cutting
 
