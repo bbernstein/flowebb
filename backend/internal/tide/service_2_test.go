@@ -385,6 +385,9 @@ func TestTimeZoneHandling(t *testing.T) {
 				HttpClient:      httpClient,
 				StationFinder:   stationFinder,
 				PredictionCache: cache,
+				// Fixed winter clock: the Seattle coords resolve to a DST-aware
+				// zone, so "Pacific Time" is only -28800 outside DST.
+				Now: func() time.Time { return time.Date(2026, 1, 15, 20, 0, 0, 0, time.UTC) },
 			}
 
 			response, err := service.GetCurrentTideForStation(context.Background(), station.ID, nil, nil)
@@ -407,7 +410,9 @@ func TestCacheIntegration(t *testing.T) {
 	// Convert to Pacific time for the test (UTC-8)
 	location := time.FixedZone("PST", -8*60*60)
 	nowPacific := now.In(location)
-	today := nowPacific.Format("20060102") // Format date as NOAA API
+	// NOAA is queried in GMT from the station's local midnight ("20250128 08:00")
+	today := time.Date(nowPacific.Year(), nowPacific.Month(), nowPacific.Day(), 0, 0, 0, 0, location).
+		UTC().Format("20060102 15:04")
 
 	// Create a WaitGroup to synchronize cache operations
 	var wg sync.WaitGroup
@@ -555,7 +560,9 @@ func TestCacheIntegration(t *testing.T) {
 
 	savedBatchMu.Lock()
 	require.NotNil(t, savedBatch, "Expected predictions to be cached after API fetch")
-	require.Len(t, savedBatch, 2, "Expected two days of predictions")
+	// Days loaded are the requested local days (01-28 and 01-29) plus the
+	// next day (01-30), which is always fetched for interpolation.
+	require.Len(t, savedBatch, 3, "Expected the requested days plus the next day")
 	{
 		assert.Equal(t, "TEST001", savedBatch[0].StationID)
 		// Verify the cached date matches our test date

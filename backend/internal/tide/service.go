@@ -7,6 +7,7 @@ import (
 	"github.com/bbernstein/flowebb/backend/internal/cache"
 	"github.com/bbernstein/flowebb/backend/internal/config"
 	"github.com/bbernstein/flowebb/backend/internal/models"
+	"github.com/bbernstein/flowebb/backend/internal/timezone"
 	"github.com/bbernstein/flowebb/backend/pkg/http/client"
 	"github.com/rs/zerolog/log"
 	"math"
@@ -23,6 +24,15 @@ type Service struct {
 	HttpClient      *client.Client
 	StationFinder   models.StationFinder
 	PredictionCache cache.CacheService
+	// Now returns the current time. Nil means time.Now; tests set a fixed clock.
+	Now func() time.Time
+}
+
+func (s *Service) now() time.Time {
+	if s.Now != nil {
+		return s.Now()
+	}
+	return time.Now()
 }
 
 type DefaultServiceFactory struct{}
@@ -87,9 +97,10 @@ func (s *Service) GetCurrentTideForStation(ctx context.Context, stationID string
 		return nil, fmt.Errorf("finding localStation: %w", err)
 	}
 
-	// Create timezone location for the localStation
-	location := time.FixedZone("Station", localStation.TimeZoneOffset)
-	now := time.Now().In(location)
+	// The station's DST-aware zone. NOAA's TimeZoneOffset is the standard
+	// offset only, so a fixed zone would be an hour off during DST.
+	location := timezone.ForStation(localStation.Latitude, localStation.Longitude, localStation.TimeZoneOffset)
+	now := s.now().In(location)
 
 	// Parse start time if provided, otherwise use start of today in localStation's timezone
 	var startTime time.Time
@@ -124,16 +135,16 @@ func (s *Service) GetCurrentTideForStation(ctx context.Context, stationID string
 		return nil, NewInvalidRangeError(fmt.Sprintf("date range cannot exceed %d days", daysDataAllowed))
 	}
 
-	// Calculate query range
+	// Calculate the range of station-local days to load (local midnights).
 	useExtremes := localStation.StationType != nil && *localStation.StationType == "S"
-	queryStart := startTime
+	queryStart := localMidnight(startTime, location)
 	if useExtremes {
 		// For extremes, go back one day for better interpolation
-		queryStart = startTime.Truncate(24*time.Hour).AddDate(0, 0, -1)
+		queryStart = queryStart.AddDate(0, 0, -1)
 	}
 
-	// End time should be the start of the day after the last day
-	queryEnd := endTime.Truncate(24*time.Hour).AddDate(0, 0, 1)
+	// The last day loaded is the day after the end time's local day
+	queryEnd := localMidnight(endTime, location).AddDate(0, 0, 1)
 
 	records, err := s.getPredictionsForDateRange(ctx, localStation, queryStart, queryEnd, location)
 	if err != nil {
@@ -206,6 +217,8 @@ func (s *Service) GetCurrentTideForStation(ctx context.Context, stationID string
 
 	// Format current time in local timezone for response
 	nowStr := now.Format("2006-01-02T15:04:05")
+	// The station's UTC offset in effect now (DST-aware)
+	_, offsetSeconds := now.Zone()
 
 	response := &models.ExtendedTideResponse{
 		ResponseType:          "tide",
@@ -222,7 +235,7 @@ func (s *Service) GetCurrentTideForStation(ctx context.Context, stationID string
 		CalculationMethod:     "NOAA API",
 		Extremes:              filteredExtremes,
 		Predictions:           filteredPredictions,
-		TimeZoneOffsetSeconds: &localStation.TimeZoneOffset,
+		TimeZoneOffsetSeconds: &offsetSeconds,
 	}
 
 	if err := response.Validate(); err != nil {
@@ -235,7 +248,7 @@ func (s *Service) GetCurrentTideForStation(ctx context.Context, stationID string
 func (s *Service) fetchNoaaPredictions(ctx context.Context, stationID, startDate, endDate string, location *time.Location) ([]models.TidePrediction, error) {
 	resp, err := s.HttpClient.Get(ctx, fmt.Sprintf("/api/prod/datagetter"+
 		"?station=%s&begin_date=%s&end_date=%s&product=predictions&datum=MLLW"+
-		"&units=english&time_zone=lst_ldt&format=json&interval=6",
+		"&units=english&time_zone=gmt&format=json&interval=6",
 		stationID, startDate, endDate))
 	if err != nil {
 		return nil, NewNoaaAPIError("error making HTTP request for predictions", err)
@@ -255,7 +268,7 @@ func (s *Service) fetchNoaaPredictions(ctx context.Context, stationID, startDate
 
 	predictions := make([]models.TidePrediction, len(noaaResp.Predictions))
 	for i, p := range noaaResp.Predictions {
-		timestamp, err := parseNoaaTime(p.Time, location)
+		timestamp, err := parseNoaaTime(p.Time)
 		if err != nil {
 			return nil, err
 		}
@@ -278,7 +291,7 @@ func (s *Service) fetchNoaaPredictions(ctx context.Context, stationID, startDate
 func (s *Service) fetchNoaaExtremes(ctx context.Context, stationID, startDate, endDate string, location *time.Location) ([]models.TideExtreme, error) {
 	resp, err := s.HttpClient.Get(ctx, fmt.Sprintf("/api/prod/datagetter"+
 		"?station=%s&begin_date=%s&end_date=%s&product=predictions&datum=MLLW"+
-		"&units=english&time_zone=lst_ldt&format=json&interval=hilo",
+		"&units=english&time_zone=gmt&format=json&interval=hilo",
 		stationID, startDate, endDate))
 	if err != nil {
 		return nil, NewNoaaAPIError("error making HTTP request for extremes", err)
@@ -298,7 +311,7 @@ func (s *Service) fetchNoaaExtremes(ctx context.Context, stationID, startDate, e
 
 	extremes := make([]models.TideExtreme, len(noaaResp.Predictions))
 	for i, p := range noaaResp.Predictions {
-		timestamp, err := parseNoaaTime(p.Time, location)
+		timestamp, err := parseNoaaTime(p.Time)
 		if err != nil {
 			return nil, err
 		}
@@ -451,8 +464,11 @@ func (s *Service) getPredictionsForDateRange(ctx context.Context, station *model
 		Int("missing_days", len(missingDates)).
 		Msg("Fetching missing dates from NOAA")
 
-	startStr := minDate.Format("20060102")
-	endStr := maxDate.Format("20060102")
+	// NOAA is queried in GMT with time-qualified bounds that cover the
+	// missing local days exactly: from the first day's local midnight to one
+	// minute before the local midnight after the last day.
+	startStr := noaaGMTBound(minDate)
+	endStr := noaaGMTBound(maxDate.AddDate(0, 0, 1).Add(-time.Minute))
 
 	predictions, err := s.fetchNoaaPredictions(ctx, station.ID, startStr, endStr, location)
 	if err != nil {
@@ -567,10 +583,22 @@ func filterExtremes(extremes []models.TideExtreme, start, end int64) []models.Ti
 	return filtered
 }
 
-func parseNoaaTime(timeStr string, location *time.Location) (int64, error) {
-	// NOAA time format is "2006-01-02 15:04"
-	// Parse in the station's local timezone
-	t, err := time.ParseInLocation("2006-01-02 15:04", timeStr, location)
+// localMidnight returns midnight at the start of t's calendar day in loc.
+func localMidnight(t time.Time, loc *time.Location) time.Time {
+	t = t.In(loc)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
+}
+
+// noaaGMTBound formats t as a NOAA begin_date/end_date in GMT
+// ("yyyyMMdd HH:mm"), with the space URL-encoded.
+func noaaGMTBound(t time.Time) string {
+	return t.UTC().Format("20060102") + "%20" + t.UTC().Format("15:04")
+}
+
+func parseNoaaTime(timeStr string) (int64, error) {
+	// NOAA time format is "2006-01-02 15:04". Requests use time_zone=gmt,
+	// so every time is UTC.
+	t, err := time.ParseInLocation("2006-01-02 15:04", timeStr, time.UTC)
 	if err != nil {
 		return 0, fmt.Errorf("parsing time %s: %w", timeStr, err)
 	}
