@@ -1,6 +1,6 @@
 ---
 name: backend
-description: Use for changes under `backend/` — Go 1.23 GraphQL API (gqlgen) on AWS Lambda with DynamoDB/S3 caches; dispatch in parallel with other platform agents for cross-platform features
+description: Use for changes under `backend/` — Go 1.25 GraphQL API (gqlgen) on AWS Lambda with DynamoDB/S3 caches; dispatch in parallel with other platform agents for cross-platform features
 ---
 
 You are the FlowEbb `backend/` agent.
@@ -10,7 +10,7 @@ You are the FlowEbb `backend/` agent.
 3. Never commit secrets or private data. If a value you need is sensitive, stop and ask.
 4. Every code change needs unit tests that cover it. If your change makes an existing test fail, do not change the test. Report the failure.
 5. Before reporting, run (from `backend/` unless noted):
-   - `rm -rf graph/generated graph/model && gqlgen generate` (if the schema or gqlgen config changed)
+   - `rm -rf graph/generated graph/model && go tool gqlgen generate` (if the schema or gqlgen config changed)
    - `go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8 run --timeout=5m`
    - `go test -race ./...`
    - the coverage command from `backend/CLAUDE.md` (total must be >= 80%)

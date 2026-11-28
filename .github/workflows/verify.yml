@@ -70,14 +70,14 @@ jobs:
         run: |
           rm -rf graph/generated graph/model
           go mod download
-          go install github.com/99designs/gqlgen@v0.17.64
-          gqlgen generate
+          go tool gqlgen generate
           go mod tidy
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.64.8
+          install-mode: goinstall
           working-directory: backend
           args: --timeout=5m
           skip-cache: true
@@ -106,8 +106,7 @@ jobs:
         run: |
           rm -rf graph/generated graph/model
           go mod download
-          go install github.com/99designs/gqlgen@v0.17.64
-          gqlgen generate
+          go tool gqlgen generate
           go mod tidy
 
       - name: Run race tests

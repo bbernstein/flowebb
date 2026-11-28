@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 )
 
 func TestResolver_Stations(t *testing.T) {
@@ -221,4 +222,43 @@ func TestResolver_Tides(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestResolver_Stations_CurrentOffsetFollowsDST(t *testing.T) {
+	finder := &mockStationFinder{
+		findNearestStationsFn: func(ctx context.Context, lat, lon float64, limit int) ([]models.Station, error) {
+			return []models.Station{
+				{ID: "8443970", Name: "Boston", Latitude: 42.3601, Longitude: -71.0589, TimeZoneOffset: -5 * 3600},
+				{ID: "1612340", Name: "Honolulu", Latitude: 21.3067, Longitude: -157.8670, TimeZoneOffset: -10 * 3600},
+				{ID: "X", Name: "Unknown", Latitude: 0, Longitude: 0, TimeZoneOffset: 3 * 3600},
+			}, nil
+		},
+	}
+	lat, lon := 42.0, -71.0
+	tests := []struct {
+		name string
+		now  time.Time
+		want []int
+	}{
+		{"summer", time.Date(2025, 7, 15, 12, 0, 0, 0, time.UTC), []int{-4 * 3600, -10 * 3600, 3 * 3600}},
+		{"winter", time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC), []int{-5 * 3600, -10 * 3600, 3 * 3600}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			now := tt.now
+			r := &Resolver{StationFinder: finder, Now: func() time.Time { return now }}
+			got, err := r.Query().Stations(context.Background(), &lat, &lon, nil)
+			require.NoError(t, err)
+			require.Len(t, got, len(tt.want))
+			for i, w := range tt.want {
+				assert.Equal(t, w, got[i].TimeZoneOffset, got[i].Name)
+			}
+		})
+	}
+}
+
+func TestResolver_now_DefaultsToRealClock(t *testing.T) {
+	before := time.Now()
+	got := (&Resolver{}).now()
+	assert.False(t, got.Before(before))
 }

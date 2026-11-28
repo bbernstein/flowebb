@@ -27,11 +27,12 @@ Each record is listed once, under the platform it mainly constrains. Its
 - [0010: Subordinate stations: interpolate smoothly between NOAA extremes](0010-subordinate-stations-interpolate-extremes.md). Accepted.
 - [0013: Rewrite the backend from Kotlin/Ktor on the JVM to Go](0013-rewrite-backend-in-go.md). Accepted.
 - [0014: Local versus production behavior is set by the SAM template](0014-local-vs-prod-config-from-sam-template.md). Accepted.
-- [0015: The backend handles all tide times in the station's local zone](0015-backend-times-in-station-local-zone.md). Accepted.
+- [0015: The backend handles all tide times in the station's local zone](0015-backend-times-in-station-local-zone.md). Accepted (NOAA request and zone mechanism superseded by 0038).
 - [0018: Cache sizes and TTLs come from CACHE_* environment variables](0018-cache-sizes-and-ttls-from-env.md). Accepted.
 - [0020: NOAA failures become typed errors, and must not pass as empty data](0020-noaa-errors-typed-and-502.md). Accepted.
 - [0025: Serve the API as one GraphQL Lambda built with gqlgen](0025-graphql-api-with-gqlgen.md). Accepted.
 - [0028: Backend tests: 80% coverage without generated code, injected dependencies, no real NOAA or AWS](0028-backend-testing-and-coverage.md). Accepted.
+- [0038: Backend fetches NOAA in GMT and uses a lat/lon-derived IANA zone](0038-backend-noaa-gmt-and-iana-station-zone.md). Accepted.
 
 ### Web
 

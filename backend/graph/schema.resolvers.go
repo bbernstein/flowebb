@@ -41,7 +41,7 @@ func (r *queryResolver) Stations(ctx context.Context, lat *float64, lon *float64
 			Longitude:      s.Longitude,
 			Source:         string(s.Source),
 			Capabilities:   s.Capabilities,
-			TimeZoneOffset: s.TimeZoneOffset,
+			TimeZoneOffset: r.currentOffsetSeconds(s),
 		}
 	}
 

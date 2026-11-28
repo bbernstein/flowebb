@@ -33,7 +33,7 @@ file is tracked. `gitleaks` runs in CI on every PR. Neither replaces judgment.
 |---|---|---|---|
 | UI, pages, charts, maps, styling | `web/` | Next.js 15, React 18, Apollo, MUI, Leaflet, Highcharts | `web/CLAUDE.md` |
 | Marketing landing page, SEO, `www.flowebb.com` | `www/` | Static HTML/CSS, html-validate, S3 + CloudFront | `www/CLAUDE.md` |
-| API, GraphQL schema, tide/station data, NOAA client, caching, Lambda code | `backend/` | Go 1.23, gqlgen, AWS Lambda (arm64), DynamoDB, S3 | `backend/CLAUDE.md` |
+| API, GraphQL schema, tide/station data, NOAA client, caching, Lambda code | `backend/` | Go 1.25, gqlgen, AWS Lambda (arm64), DynamoDB, S3 | `backend/CLAUDE.md` |
 | AWS resources, DNS, CloudFront, IAM, Lambda config, CI deploy roles | `infra/` | Terraform 1.5 | `infra/CLAUDE.md` |
 | ESP32 device, LED behavior, Wi-Fi, on-device tide logic | `firmware/` | ESP32-S3, PlatformIO/Arduino, NeoPixel | `firmware/CLAUDE.md` |
 | CI workflows, repo rules, docs | `.github/`, `scripts/`, `docs/` | GitHub Actions, bash | this file |
@@ -95,7 +95,7 @@ Run each from its platform directory. Full details are in each platform's
 
 | Platform | Install / generate | Lint | Test | Build / run |
 |---|---|---|---|---|
-| `backend/` | `go install github.com/99designs/gqlgen@v0.17.64`, then `rm -rf graph/generated graph/model && gqlgen generate` | `go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8 run --timeout=5m` | `go test -race ./...` (≥80% coverage enforced in CI) | `go build ./...` |
+| `backend/` | `rm -rf graph/generated graph/model && go tool gqlgen generate` (gqlgen is a `tool` in go.mod) | `go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8 run --timeout=5m` | `go test -race ./...` (≥80% coverage enforced in CI) | `go build ./...` |
 | `web/` | `npm ci` | `npm run lint` | `npm test` | `npm run dev` (port 3000), `npm run build` |
 | `www/` | `npm ci` | `npm run lint` | `npm test` | none (static files in `www/site/`) |
 | `infra/terraform/` | `tflint --init` | `terraform fmt -check -recursive`, `tflint --recursive` | `terraform plan` from `environments/prod/` (read-only) | apply only via `deploy-infra.yml` |
@@ -130,6 +130,7 @@ Key decisions:
 - [0004: Infra and application deploys are separate; Terraform ignores Lambda code](docs/decisions/0004-infra-and-app-deploys-are-separate.md)
 - [0035: The www landing page is its own static site and CloudFront distribution](docs/decisions/0035-www-landing-site.md)
 - [0015: The backend handles all tide times in the station's local zone](docs/decisions/0015-backend-times-in-station-local-zone.md)
+- [0038: Backend fetches NOAA in GMT and uses a lat/lon-derived IANA zone](docs/decisions/0038-backend-noaa-gmt-and-iana-station-zone.md)
 
 ## Adding a platform
 

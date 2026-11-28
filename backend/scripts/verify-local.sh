@@ -8,8 +8,7 @@ ROOT_DIR=$(dirname "$0")/..
 cd $ROOT_DIR
 
 # Backend Go checks
-go install github.com/99designs/gqlgen@latest
-gqlgen generate
+go tool gqlgen generate
 go mod tidy
 golangci-lint run ./...
 go test -race ./...

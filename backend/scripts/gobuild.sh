@@ -12,11 +12,11 @@ echo "Installing gqlgen globally..."
 go install github.com/99designs/gqlgen@latest
 
 echo "Generating GraphQL code..."
-# Use the globally installed gqlgen
+# gqlgen is pinned as a tool in go.mod
 if [ ! -f gqlgen.yml ]; then
-    gqlgen init
+    go tool gqlgen init
 fi
-gqlgen generate
+go tool gqlgen generate
 
 echo "Running go mod tidy..."
 go mod tidy

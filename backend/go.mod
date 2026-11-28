@@ -1,6 +1,6 @@
 module github.com/bbernstein/flowebb/backend
 
-go 1.23.4
+go 1.25.0
 
 require (
 	github.com/99designs/gqlgen v0.17.64
@@ -12,6 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.39.6
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.74.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
+	github.com/ringsaturn/tzf v1.2.5
 	github.com/rs/zerolog v1.33.0
 	github.com/stretchr/testify v1.10.0
 	github.com/vektah/gqlparser/v2 v2.5.22
@@ -35,6 +36,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.11 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.10 // indirect
 	github.com/aws/smithy-go v1.22.2 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -43,8 +45,22 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/ringsaturn/orb v0.15.0 // indirect
+	github.com/ringsaturn/tzf-dist v0.0.2026-c-fix1 // indirect
+	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sosodev/duration v1.3.1 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
+	github.com/tidwall/geoindex v1.7.0 // indirect
+	github.com/tidwall/rtree v1.10.0 // indirect
+	github.com/urfave/cli/v2 v2.27.5 // indirect
+	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
+	golang.org/x/mod v0.21.0 // indirect
+	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
+	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/tools v0.26.0 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+tool github.com/99designs/gqlgen

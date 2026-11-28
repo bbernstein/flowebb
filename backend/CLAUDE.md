@@ -4,7 +4,7 @@ Read the root `CLAUDE.md` first. Run every command below from `backend/`.
 
 ## Stack
 
-- Go 1.23.4 (from `go.mod`). Module path: `github.com/bbernstein/flowebb/backend`.
+- Go 1.25.0 (from `go.mod`). Module path: `github.com/bbernstein/flowebb/backend`.
 - gqlgen v0.17.64 for the GraphQL server. The schema is `graph/schema.graphql`.
 - AWS Lambda (arm64, custom-runtime `bootstrap` binary), function `flowebb-graphql-prod`.
 - Caches: LRU in memory, DynamoDB (tide predictions), S3 (station list).
@@ -30,11 +30,11 @@ Read the root `CLAUDE.md` first. Run every command below from `backend/`.
 ## Commands
 
 ```bash
-# One-time: install gqlgen. `go run github.com/99designs/gqlgen` does NOT work here.
-go install github.com/99designs/gqlgen@v0.17.64
-
-# Regenerate after any schema.graphql or gqlgen.yml change (and on a fresh clone)
-rm -rf graph/generated graph/model && gqlgen generate
+# Regenerate after any schema.graphql or gqlgen.yml change (and on a fresh clone).
+# gqlgen is pinned as a `tool` in go.mod (v0.17.64); no separate install needed.
+# Do not use `go install gqlgen@...`: it ignores go.mod and pulls an x/tools that
+# does not build on Go 1.25.
+rm -rf graph/generated graph/model && go tool gqlgen generate
 
 # Lint (golangci-lint v1; .golangci.yml is a v1 config, so v2 will reject it)
 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8 run --timeout=5m

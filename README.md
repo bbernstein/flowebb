@@ -30,7 +30,7 @@ cd flowebb
 
 Then follow the README of the platform you are working on:
 
-- **Backend:** `cd backend`, install gqlgen, run `gqlgen generate`, then `go test ./...`. See [`backend/README.md`](backend/README.md) and [`backend/CLAUDE.md`](backend/CLAUDE.md).
+- **Backend:** `cd backend`, run `go tool gqlgen generate`, then `go test ./...`. See [`backend/README.md`](backend/README.md) and [`backend/CLAUDE.md`](backend/CLAUDE.md).
 - **Web:** `cd web && npm ci && npm run dev`. See [`web/README.md`](web/README.md).
 - **Infra:** `cd infra/terraform/environments/prod && terraform init && terraform plan`. See [`infra/README.md`](infra/README.md).
 - **Firmware:** `cd firmware`, create `wifi_credentials.h` from the template, then `pio run -t upload`. See [`firmware/README.md`](firmware/README.md).
