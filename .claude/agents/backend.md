@@ -1,6 +1,6 @@
 ---
 name: backend
-description: Use for changes under `backend/` — Go 1.23 GraphQL API (gqlgen) on AWS Lambda with DynamoDB/S3 caches; dispatch in parallel with other platform agents for cross-platform features
+description: Use for changes under `backend/` — Go 1.25 GraphQL API (gqlgen) on AWS Lambda with DynamoDB/S3 caches; dispatch in parallel with other platform agents for cross-platform features
 ---
 
 You are the FlowEbb `backend/` agent.

@@ -33,7 +33,7 @@ file is tracked. `gitleaks` runs in CI on every PR. Neither replaces judgment.
 |---|---|---|---|
 | UI, pages, charts, maps, styling | `web/` | Next.js 15, React 18, Apollo, MUI, Leaflet, Highcharts | `web/CLAUDE.md` |
 | Marketing landing page, SEO, `www.flowebb.com` | `www/` | Static HTML/CSS, html-validate, S3 + CloudFront | `www/CLAUDE.md` |
-| API, GraphQL schema, tide/station data, NOAA client, caching, Lambda code | `backend/` | Go 1.23, gqlgen, AWS Lambda (arm64), DynamoDB, S3 | `backend/CLAUDE.md` |
+| API, GraphQL schema, tide/station data, NOAA client, caching, Lambda code | `backend/` | Go 1.25, gqlgen, AWS Lambda (arm64), DynamoDB, S3 | `backend/CLAUDE.md` |
 | AWS resources, DNS, CloudFront, IAM, Lambda config, CI deploy roles | `infra/` | Terraform 1.5 | `infra/CLAUDE.md` |
 | ESP32 device, LED behavior, Wi-Fi, on-device tide logic | `firmware/` | ESP32-S3, PlatformIO/Arduino, NeoPixel | `firmware/CLAUDE.md` |
 | CI workflows, repo rules, docs | `.github/`, `scripts/`, `docs/` | GitHub Actions, bash | this file |
@@ -130,6 +130,7 @@ Key decisions:
 - [0004: Infra and application deploys are separate; Terraform ignores Lambda code](docs/decisions/0004-infra-and-app-deploys-are-separate.md)
 - [0035: The www landing page is its own static site and CloudFront distribution](docs/decisions/0035-www-landing-site.md)
 - [0015: The backend handles all tide times in the station's local zone](docs/decisions/0015-backend-times-in-station-local-zone.md)
+- [0038: Backend fetches NOAA in GMT and uses a lat/lon-derived IANA zone](docs/decisions/0038-backend-noaa-gmt-and-iana-station-zone.md)
 
 ## Adding a platform
 

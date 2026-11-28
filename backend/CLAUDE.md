@@ -4,7 +4,7 @@ Read the root `CLAUDE.md` first. Run every command below from `backend/`.
 
 ## Stack
 
-- Go 1.23.4 (from `go.mod`). Module path: `github.com/bbernstein/flowebb/backend`.
+- Go 1.25.0 (from `go.mod`). Module path: `github.com/bbernstein/flowebb/backend`.
 - gqlgen v0.17.64 for the GraphQL server. The schema is `graph/schema.graphql`.
 - AWS Lambda (arm64, custom-runtime `bootstrap` binary), function `flowebb-graphql-prod`.
 - Caches: LRU in memory, DynamoDB (tide predictions), S3 (station list).

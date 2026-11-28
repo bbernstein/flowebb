@@ -1,6 +1,6 @@
 # 0015: The backend handles all tide times in the station's local zone
 
-**Status:** Accepted
+**Status:** Accepted. The NOAA request and zone mechanism are superseded by [0038](0038-backend-noaa-gmt-and-iana-station-zone.md); the local-zone principle stands.
 
 **Date:** 2024-12-31
 
@@ -14,12 +14,11 @@ midnight, "today" differed between UTC and local time.
 
 ## Decision
 
-- Request NOAA data with `time_zone=lst_ldt` (station local standard or
-  daylight time).
-- Build a location from the station's offset
-  (`time.FixedZone` in `backend/internal/tide/service.go`, offset from
-  `parseTimeZoneOffset` in `backend/internal/station/noaa.go`) and parse every
-  NOAA time in it.
+- Originally: request NOAA data with `time_zone=lst_ldt` and parse every time
+  in a `time.FixedZone` built from the station's standard offset. This was
+  wrong during DST. [0038](0038-backend-noaa-gmt-and-iana-station-zone.md)
+  replaced it: NOAA is fetched in GMT and each station has an IANA zone from
+  its lat/lon.
 - Compute day boundaries, "today" and "now" in that location. A cache "day" is
   a station-local day ([0009](0009-prediction-cache-per-station-day.md)).
   Never use the server's zone or UTC for parsing or day grouping.
@@ -29,12 +28,9 @@ midnight, "today" differed between UTC and local time.
 - Tests fix the clock and zone explicitly and format mock NOAA payloads as
   `YYYY-MM-DD HH:MM`. They never depend on the host's current date.
 
-**Note:** two things here need verifying before anyone changes this code.
-`parseTimeZoneOffset` turns NOAA's whole-hour standard-time correction into a
-fixed offset, while `lst_ldt` times include daylight saving, so during DST the
-parsed instants may be off by an hour, and half-hour zones are not
-representable. The date-range code also uses `Truncate(24*time.Hour)`, which
-truncates on UTC boundaries, not station-local ones.
+**Note:** the DST issue and the UTC `Truncate(24*time.Hour)` day boundary
+noted here earlier are resolved and superseded in part by
+[0038](0038-backend-noaa-gmt-and-iana-station-zone.md).
 
 ## Alternatives rejected
 

@@ -1,7 +1,9 @@
 # Issue #9: station time handling during DST and half-hour zones
 
-Status: investigation complete (2026-11-27). Owner chose option A (lat/lon
-lookup) and no schema change. Implementation plan is at the end of this file.
+Status: implementation complete on branch `fix/9-station-dst-time`
+(2026-11-27); see [ADR 0038](../decisions/0038-backend-noaa-gmt-and-iana-station-zone.md).
+Owner chose option A (lat/lon lookup) and no schema change. The implementation
+plan is at the end of this file.
 
 ## Findings (verified against the live NOAA API)
 

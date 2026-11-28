@@ -25,10 +25,9 @@ Both are wrong for a station somewhere else.
 - The offset is a number of seconds, not an IANA zone name. The backend decides
   it ([0015](0015-backend-times-in-station-local-zone.md)).
 
-**Note:** the backend currently derives the offset from NOAA's whole-hour
-standard-time correction, so daylight saving time and half-hour zones are not
-reflected in it. Check [0015](0015-backend-times-in-station-local-zone.md)
-before relying on the offset for DST-sensitive display.
+**Note:** the earlier DST caveat about the backend offset is resolved and
+superseded in part by [0038](0038-backend-noaa-gmt-and-iana-station-zone.md).
+The offset is now the one in effect at request time.
 
 ## Alternatives rejected
 
